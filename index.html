@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<!-- saved from url=(0112)file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/index-melhorado.html -->
+<!-- saved from url=(0102)file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/index.html -->
 <html lang="pt-BR" class="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#DDF5E6">
-  <meta name="description" content="Waste2Taste — despensa inteligente com IA, OCR, código de barras e lista de compras">
-  <title>Waste2Taste</title>
+  <meta name="description" content="Wasting2Tasting — despensa inteligente com IA, OCR, código de barras e lista de compras">
+  <title>Wasting2Tasting</title>
 
   <link rel="manifest" href="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/manifest.json">
   <link rel="icon" href="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png">
   <link rel="apple-touch-icon" href="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Waste2Taste">
+  <meta name="apple-mobile-web-app-title" content="Wasting2Tasting">
   <meta name="mobile-web-app-capable" content="yes">
 
   <script src="./index_files/saved_resource"></script>
@@ -145,7 +145,7 @@
   <header class="sticky top-0 z-30 bg-[#F7FAF8]/95 backdrop-blur border-b border-slate-200">
     <div class="px-5 py-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
-        <img src="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png" alt="Waste2Taste" class="w-10 h-10 rounded-2xl object-cover">
+        <img src="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png" alt="Wasting2Tasting" class="w-10 h-10 rounded-2xl object-cover">
         <div>
           <h1 class="font-extrabold text-lg">Waste<span class="text-green-600">2</span>Taste</h1>
         </div>
@@ -493,7 +493,7 @@
     <!-- PROFILE -->
     <section id="profile" class="screen pt-5">
       <div class="text-center py-6">
-        <img src="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png" alt="Waste2Taste" class="w-20 h-20 mx-auto rounded-full object-cover">
+        <img src="file:///C:/Users/migue/Documents/Codex/2026-09-29/files-mentioned-by-the-user-index/outputs/icon-192.png" alt="Wasting2Tasting" class="w-20 h-20 mx-auto rounded-full object-cover">
         <h2 class="text-2xl font-extrabold mt-4">Meu Perfil</h2>
         <p class="text-sm text-slate-400">Despensa inteligente com IA</p>
       </div>
@@ -543,9 +543,9 @@
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-3">
-        <p class="font-semibold text-sm text-slate-800">Sobre o Waste2Taste</p>
+        <p class="font-semibold text-sm text-slate-800">Sobre o Wasting2Tasting</p>
         <p class="text-sm text-slate-500 mt-2 leading-relaxed">
-          O Waste2Taste é o seu assistente pessoal de despensa. Ele ajuda a acompanhar a
+          O Wasting2Tasting é o seu assistente pessoal de despensa. Ele ajuda a acompanhar a
           validade dos alimentos, sugere receitas com o que você já tem em casa e organiza
           sua lista de compras automaticamente — tudo para facilitar o dia a dia e reduzir
           o desperdício de comida.
@@ -1099,6 +1099,8 @@ let foods = loadFoods();
 let shoppingList = loadShoppingList();
 let history = loadHistory();
 let model = null;
+let aiLoadPromise = null;
+let aiLoadError = "";
 let cameraStream = null;
 let html5Qr = null;
 let scannerRunning = false;
@@ -2438,23 +2440,56 @@ async function startCamera() {
 }
 
 async function loadAI() {
-  try {
-    if (typeof tf === "undefined" || typeof mobilenet === "undefined") {
-      throw new Error("TensorFlow.js ou MobileNet não carregou.");
+  if (model) return model;
+  if (aiLoadPromise) return aiLoadPromise;
+
+  aiLoadPromise = (async () => {
+    try {
+      if (typeof tf === "undefined") {
+        throw new Error("TensorFlow.js não carregou. Verifique a conexão e recarregue a página.");
+      }
+      if (typeof mobilenet === "undefined") {
+        throw new Error("A biblioteca MobileNet não carregou. Verifique a conexão e recarregue a página.");
+      }
+
+      setStatus("Carregando IA visual...", "Baixando o modelo; na primeira vez pode demorar.", "🧠");
+      await tf.ready();
+
+      // Alguns celulares têm WebGL indisponível ou instável. Tente primeiro a GPU
+      // e, se falhar, tente CPU antes de declarar a IA indisponível.
+      let backendError = null;
+      for (const backend of ["webgl", "cpu"]) {
+        try {
+          const backendReady = await tf.setBackend(backend);
+          if (!backendReady) throw new Error("Backend " + backend + " indisponível neste navegador.");
+          await tf.ready();
+          model = await mobilenet.load({ version: 2, alpha: 0.50 });
+          break;
+        } catch (e) {
+          backendError = e;
+          model = null;
+          console.warn("Falha no backend " + backend + "; tentando alternativa.", e);
+        }
+      }
+
+      if (!model) {
+        throw backendError || new Error("Nenhum backend compatível (WebGL/CPU) ficou disponível.");
+      }
+
+      aiLoadError = "";
+      setStatus("IA pronta", "Modelo carregado usando " + tf.getBackend() + ".", "🤖");
+      return model;
+    } catch (e) {
+      console.error("Falha ao carregar IA:", e);
+      aiLoadError = String(e?.message || e || "Erro desconhecido").slice(0, 180);
+      setStatus("IA visual indisponível", aiLoadError || "Confira a conexão e tente novamente.", "⚠️");
+      return null;
+    } finally {
+      aiLoadPromise = null;
     }
+  })();
 
-    await tf.ready();
-
-    if (!model) {
-      setStatus("Carregando IA visual...", "Na primeira vez pode demorar um pouco.", "🧠");
-      model = await mobilenet.load({ version: 2, alpha: 0.50 });
-    }
-
-    setStatus("IA pronta", "Visão geral + leitura de texto da embalagem disponíveis.", "🤖");
-  } catch (e) {
-    console.error(e);
-    setStatus("IA visual indisponível", "Confira sua conexão. O cadastro manual continua funcionando.", "⚠️");
-  }
+  return aiLoadPromise;
 }
 
 function setStatus(title, desc, icon) {
@@ -2485,7 +2520,7 @@ async function captureAndClassify() {
   if (!model) await loadAI();
 
   if (!model) {
-    setStatus("IA não disponível", "Você pode cadastrar o alimento manualmente.", "⚠️");
+    setStatus("IA não disponível", aiLoadError || "Confira a conexão e tente novamente. Você também pode cadastrar manualmente.", "⚠️");
     return;
   }
 
@@ -3464,7 +3499,7 @@ function checkAndNotifyExpirations() {
   const parts = [];
   if (expired.length) parts.push(`${expired.length} vencido(s)`);
   if (soon.length) parts.push(`${soon.length} vencendo em breve`);
-  sendSystemNotification("Waste2Taste", `Você tem ${parts.join(" e ")}. Confira sua despensa.`);
+  sendSystemNotification("Wasting2Tasting", `Você tem ${parts.join(" e ")}. Confira sua despensa.`);
 }
 
 /* ============================================================
