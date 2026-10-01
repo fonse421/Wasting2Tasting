@@ -157,6 +157,9 @@
     .screen > h2 { letter-spacing:-.035em; }
     .screen .bg-white.border-slate-200,
     .screen .bg-white.border { box-shadow:0 5px 18px rgba(21,48,31,.045); }
+    #recipes .recipe-menu-hero { background:radial-gradient(circle at 92% 0%,rgba(81,183,112,.2),transparent 38%),linear-gradient(135deg,#eaf6ec,#fff); border:1px solid #d9ebdd; }
+    .recipe-category-chip { color:#64736a; background:#fff; border:1px solid #e1e9e3; }
+    .recipe-category-chip.active { color:#fff; background:#18834c; border-color:#18834c; }
     .screen button.bg-green-600 { box-shadow:0 7px 18px rgba(22,126,66,.18); }
     #home > button[onclick="openScanner()"] {
       background:linear-gradient(115deg,#16834c 0%,#20a35c 58%,#34b56c 100%);
@@ -177,6 +180,9 @@
     .nav-item.active > span:first-child:not(.w-11) { transform:translateY(-1px); }
     html.dark body { background:linear-gradient(180deg,#102018 0%,#0f1a14 40%,#0e1812 100%); }
     html.dark #profile .profile-hero { background:radial-gradient(circle at 85% 5%,rgba(94,190,125,.11),transparent 38%),linear-gradient(145deg,#182620,#15231b); border-color:#33463b; }
+    html.dark #recipes .recipe-menu-hero { background:radial-gradient(circle at 92% 0%,rgba(81,183,112,.12),transparent 38%),linear-gradient(135deg,#182a20,#182620); border-color:#33463b; }
+    html.dark .recipe-category-chip { color:#b8c5bc; background:#182620; border-color:#33463b; }
+    html.dark .recipe-category-chip.active { color:#fff; background:#18834c; border-color:#18834c; }
     html.dark .screen .bg-white.border-slate-200,
     html.dark .screen .bg-white.border { box-shadow:0 5px 18px rgba(0,0,0,.13); }
     @media (min-width:420px) {
@@ -348,14 +354,22 @@
 
     <!-- RECIPES -->
     <section id="recipes" class="screen pt-5">
-      <p class="text-sm text-slate-400">Sugestões</p>
-      <h2 class="text-2xl font-extrabold mt-1">Receitas</h2>
-      <p class="text-sm text-slate-400 mt-1">Toque numa receita para ver o passo a passo.</p>
-      <label class="block mt-4">
+      <div class="recipe-menu-hero rounded-3xl p-5 mb-4">
+        <p class="text-xs uppercase tracking-[.18em] text-green-700 font-semibold">Wasting2Tasting · Cozinha</p>
+        <h2 class="text-3xl font-extrabold mt-2">Cardápio</h2>
+        <p class="text-sm text-slate-500 mt-1">Encontre uma receita pelo nome ou pelos ingredientes.</p>
+      </div>
+      <label class="block">
         <span class="sr-only">Buscar receitas ou ingredientes</span>
-        <input id="recipeSearch" type="search" oninput="searchRecipeCatalog(this.value)" placeholder="Buscar receita ou ingrediente" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-green-500">
+        <input id="recipeSearch" type="search" oninput="searchRecipeCatalog(this.value)" placeholder="Ex.: bolo, banana, frango..." class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-green-500">
       </label>
-      <button id="recipeCatalogButton" onclick="showAllRecipes()" class="w-full mt-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700">Explorar catálogo completo</button>
+      <div id="recipeCategoryFilters" class="flex gap-2 overflow-x-auto py-3 -mx-1 px-1">
+        <button data-recipe-category="Todas" onclick="setRecipeCategory('Todas')" class="recipe-category-chip active shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Todas</button>
+        <button data-recipe-category="Pratos" onclick="setRecipeCategory('Pratos')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Pratos</button>
+        <button data-recipe-category="Lanches" onclick="setRecipeCategory('Lanches')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Lanches</button>
+        <button data-recipe-category="Doces" onclick="setRecipeCategory('Doces')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Doces</button>
+        <button data-recipe-category="Bebidas" onclick="setRecipeCategory('Bebidas')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Bebidas</button>
+      </div>
       <div id="recipeList" class="space-y-3 mt-5"></div>
     </section>
 
@@ -530,7 +544,7 @@
         <div class="absolute inset-[16%] border-2 border-white/70 rounded-2xl"></div>
         <div class="scan-line absolute left-[16%] right-[16%] h-0.5 bg-green-400"></div>
         <div class="absolute bottom-4 left-0 right-0 text-center text-white text-xs">
-          <span class="bg-black/50 px-3 py-2 rounded-full">Centralize o alimento no quadro</span>
+          <span id="cameraOverlayHint" class="bg-black/50 px-3 py-2 rounded-full">Centralize o alimento no quadro</span>
         </div>
       </div>
     </div>
@@ -575,9 +589,10 @@
         <button onclick="startBarcodeScanner()" class="bg-green-600 text-white py-3 rounded-xl font-semibold text-sm">▦ Código de barras</button>
         <button onclick="captureAndClassify()" class="bg-slate-50 border border-slate-200 text-slate-700 py-3 rounded-xl font-semibold text-sm">📷 Foto + etiqueta</button>
       </div>
-      <div class="flex gap-2 mt-2">
+      <button onclick="toggleManualBarcodeEntry()" class="text-xs font-semibold text-slate-500 mt-3 py-2">Digitar código manualmente</button>
+      <div id="manualBarcodeEntry" class="hidden flex gap-2 mt-1">
         <input id="barcodeManualInput" type="text" inputmode="numeric" autocomplete="off" maxlength="18"
-               placeholder="Ou digite o código de barras" aria-label="Código de barras"
+               placeholder="Código de barras" aria-label="Código de barras"
                class="min-w-0 flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-200"
                onkeydown="if(event.key==='Enter') lookupBarcode(this.value)">
         <button onclick="lookupBarcode(document.getElementById('barcodeManualInput').value)" class="shrink-0 bg-white border border-slate-200 text-slate-700 px-3 rounded-xl text-sm font-semibold">Buscar</button>
@@ -1007,6 +1022,10 @@ let currentRecipe = null;
 let currentStepIndex = 0;
 let barcodeBusy = false;
 let barcodeLookupBusy = false;
+let nativeBarcodeDetector = null;
+let nativeBarcodeTimer = null;
+let nativeBarcodeDetecting = false;
+let activeRecipeCategory = "Todas";
 let deferredInstallPrompt = null;
 
 /* ============================================================
@@ -3002,53 +3021,118 @@ async function startBarcodeScanner() {
 
   try {
     await stopBarcodeScanner();
+    const video = document.getElementById("aiCamera");
+    document.getElementById("predictionBox").classList.add("hidden");
+    document.getElementById("productForm").classList.add("hidden");
+    document.getElementById("manualBarcodeEntry").classList.add("hidden");
 
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(t => t.stop());
-      cameraStream = null;
+    // Usa o leitor nativo do navegador primeiro: evita abrir uma segunda
+    // câmera e funciona melhor em celulares Chromium atuais.
+    if ("BarcodeDetector" in window) {
+      try {
+        const supported = await window.BarcodeDetector.getSupportedFormats();
+        const wanted = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf"];
+        const formats = wanted.filter(format => supported.includes(format));
+        if (formats.length) {
+          nativeBarcodeDetector = new window.BarcodeDetector({ formats });
+          if (!cameraStream) await startCamera();
+          if (cameraStream && video.readyState < 2) {
+            await new Promise(resolve => {
+              video.addEventListener("loadeddata", resolve, { once: true });
+              setTimeout(resolve, 1500);
+            });
+          }
+          if (cameraStream && video.readyState >= 2) {
+            document.getElementById("reader").classList.add("hidden");
+            video.classList.remove("hidden");
+            document.getElementById("cameraOverlay").classList.remove("hidden");
+            document.getElementById("cameraOverlayHint").textContent = "Centralize o código de barras no quadro";
+            scannerRunning = true;
+            setStatus("Aponte para o código de barras", "Mantenha o código inteiro e centralizado. O produto será cadastrado quando for reconhecido.", "▦");
+            scanBarcodeFrame();
+            return;
+          }
+        }
+      } catch (nativeError) {
+        console.warn("Leitor nativo indisponível; usando leitor compatível.", nativeError);
+        nativeBarcodeDetector = null;
+      }
     }
 
+    // Compatibilidade com navegadores sem BarcodeDetector (ex.: alguns iPhones).
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    if (typeof Html5Qrcode === "undefined") {
+      throw new Error("A biblioteca do leitor não carregou.");
+    }
     document.getElementById("aiCamera").classList.add("hidden");
     document.getElementById("cameraOverlay").classList.add("hidden");
     document.getElementById("reader").classList.remove("hidden");
 
-    html5Qr = new Html5Qrcode("reader");
-
+    const supportedFormats = window.Html5QrcodeSupportedFormats;
+    const formats = supportedFormats ? [
+      supportedFormats.EAN_13, supportedFormats.EAN_8, supportedFormats.UPC_A,
+      supportedFormats.UPC_E, supportedFormats.CODE_128, supportedFormats.CODE_39,
+      supportedFormats.ITF
+    ].filter(Number.isInteger) : undefined;
+    html5Qr = new Html5Qrcode("reader", formats ? { formatsToSupport: formats, verbose: false } : { verbose: false });
     await html5Qr.start(
-      { facingMode: { ideal: "environment" } },
+      { facingMode: "environment" },
       {
-        fps: 12,
+        fps: 15,
         qrbox: (width, height) => ({
-          width: Math.floor(width * 0.92),
-          height: Math.floor(Math.min(height * 0.62, Math.max(120, width * 0.32)))
+          width: Math.floor(width * 0.94),
+          height: Math.floor(Math.min(height * 0.42, Math.max(120, width * 0.28)))
         }),
-        aspectRatio: 1.333
+        aspectRatio: 1.333,
+        videoConstraints: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       },
       code => barcodeFound(code),
       () => {}
     );
-
     scannerRunning = true;
-    setStatus("Scanner de código ativo", "Aponte para o código de barras.", "🏷️");
+    document.getElementById("cameraOverlayHint").textContent = "Centralize o código de barras no quadro";
+    setStatus("Aponte para o código de barras", "Mantenha o código inteiro e centralizado. O produto será cadastrado quando for reconhecido.", "▦");
   } catch (e) {
     console.error(e);
-
-    document.getElementById("reader").classList.add("hidden");
-    document.getElementById("aiCamera").classList.remove("hidden");
-    document.getElementById("cameraOverlay").classList.remove("hidden");
-
-    setStatus("Não foi possível abrir o leitor", "Confira a permissão da câmera ou digite os números do código abaixo.", "⚠️");
-
-    await startCamera();
+    await stopBarcodeScanner();
+    setStatus("Não foi possível iniciar o leitor", "Confira a permissão da câmera. Você ainda pode digitar o código manualmente abaixo.", "⚠️");
   } finally {
     barcodeBusy = false;
   }
 }
 
+async function scanBarcodeFrame() {
+  if (!scannerRunning || !nativeBarcodeDetector) return;
+  const video = document.getElementById("aiCamera");
+  if (!nativeBarcodeDetecting && video?.readyState >= 2) {
+    nativeBarcodeDetecting = true;
+    try {
+      const results = await nativeBarcodeDetector.detect(video);
+      if (results?.length && scannerRunning) {
+        await barcodeFound(results[0].rawValue);
+        return;
+      }
+    } catch (error) {
+      console.debug("Tentando ler o próximo quadro do código de barras.", error);
+    } finally {
+      nativeBarcodeDetecting = false;
+    }
+  }
+  if (scannerRunning) nativeBarcodeTimer = setTimeout(scanBarcodeFrame, 180);
+}
+
 async function stopBarcodeScanner() {
+  scannerRunning = false;
+  if (nativeBarcodeTimer) clearTimeout(nativeBarcodeTimer);
+  nativeBarcodeTimer = null;
+  nativeBarcodeDetector = null;
+  nativeBarcodeDetecting = false;
   if (html5Qr) {
     try {
-      if (scannerRunning) await html5Qr.stop();
+      if (html5Qr.getState?.() === 2) await html5Qr.stop();
     } catch (e) {}
 
     try {
@@ -3057,7 +3141,6 @@ async function stopBarcodeScanner() {
   }
 
   html5Qr = null;
-  scannerRunning = false;
 
   const reader = document.getElementById("reader");
   const aiCamera = document.getElementById("aiCamera");
@@ -3066,13 +3149,58 @@ async function stopBarcodeScanner() {
   if (reader) reader.classList.add("hidden");
   if (aiCamera) aiCamera.classList.remove("hidden");
   if (overlay) overlay.classList.remove("hidden");
+  const hint = document.getElementById("cameraOverlayHint");
+  if (hint) hint.textContent = "Centralize o alimento no quadro";
 }
 
 async function barcodeFound(code) {
-  if (!code) return;
+  if (!code || barcodeLookupBusy) return;
 
   await stopBarcodeScanner();
   await lookupBarcode(code);
+}
+
+function toggleManualBarcodeEntry() {
+  const entry = document.getElementById("manualBarcodeEntry");
+  entry?.classList.toggle("hidden");
+  if (entry && !entry.classList.contains("hidden")) document.getElementById("barcodeManualInput")?.focus();
+}
+
+function barcodeStorageForProduct(product, name) {
+  const label = normalizeText([
+    name,
+    product?.categories || "",
+    ...(Array.isArray(product?.categories_tags) ? product.categories_tags : [])
+  ].join(" "));
+  if (/refrigerat|resfri|dairy|laticin|queijo|leite|iogurte|carne fresca|fresh meat|frozen|congelad/.test(label)) return "geladeira";
+  return "despensa";
+}
+
+async function registerScannedProduct(product, code) {
+  const name = String(product?.product_name_pt_br || product?.product_name_pt || product?.product_name || product?.product_name_en || "").trim();
+  if (!name || name.length < 2) return false;
+
+  const storage = barcodeStorageForProduct(product, name);
+  const weight = String(product?.quantity || "").trim();
+  const expiry = estimateExpiryDate(name, storage);
+  addOrMergeFood({ name, expiry, qty: 1, storage, weight });
+
+  const normalized = normalizeText(name);
+  const pendingMatch = shoppingList.find(item => !item.checked && normalizeText(item.name) === normalized);
+  if (pendingMatch) {
+    shoppingList = shoppingList.filter(item => item.id !== pendingMatch.id);
+    saveShoppingDB();
+    renderShopping();
+  }
+
+  render();
+  const brand = String(product?.brands || "").split(",")[0].trim();
+  const label = brand && !normalizeText(name).includes(normalizeText(brand)) ? `${name} · ${brand}` : name;
+  setStatus("Produto cadastrado na despensa", `${label}. A validade foi estimada: confira a data impressa na embalagem.`, "✓");
+  await closeScanner();
+  showScreen("pantry");
+  showToast(`${name} cadastrado automaticamente. Confira a validade no rótulo.`, "✓");
+  return true;
 }
 
 async function lookupBarcode(rawCode) {
@@ -3087,7 +3215,7 @@ async function lookupBarcode(rawCode) {
   }
 
   barcodeLookupBusy = true;
-  setStatus("Código lido", `Procurando o produto ${code}...`, "🔎");
+  setStatus("Código reconhecido", "Buscando o nome do produto para cadastrar automaticamente...", "🔎");
 
   try {
     const controller = new AbortController();
@@ -3095,7 +3223,7 @@ async function lookupBarcode(rawCode) {
     let r;
     try {
       r = await fetch(
-        OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json",
+        OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json?fields=code,product_name_pt_br,product_name_pt,product_name,product_name_en,brands,quantity,categories,categories_tags",
         { signal: controller.signal, headers: { Accept: "application/json" } }
       );
     } finally {
@@ -3107,29 +3235,14 @@ async function lookupBarcode(rawCode) {
 
     if (data.status === 1 && data.product) {
       const p = data.product;
-      const name =
-        p.product_name_pt ||
-        p.product_name_pt_br ||
-        p.product_name ||
-        "Produto identificado";
-
-      lastPrediction = {
-        name: normalizeFoodName(name),
-        confidence: 95,
-        sources: ["Código de barras"],
-        ocrText: "",
-        alternatives: []
-      };
-      showPrediction(lastPrediction);
-      setStatus("Produto encontrado", "Confira e salve — é a fonte mais confiável.", "✓");
+      if (await registerScannedProduct(p, code)) return;
+      setStatus("Código reconhecido, produto sem nome", "Não há um nome cadastrado para este código no banco de produtos. Tente novamente ou use o cadastro manual.", "⚠️");
     } else {
-      openManualForm();
-      setStatus("Produto fora do catálogo", "O código foi lido, mas não está no banco. Digite o nome para cadastrar.", "⚠️");
+      setStatus("Código reconhecido, produto fora do catálogo", "O código foi lido, mas não há nome associado a ele no banco online. Você pode tentar novamente ou usar o cadastro manual.", "⚠️");
     }
   } catch (e) {
     console.error(e);
-    openManualForm();
-    setStatus(e?.name === "AbortError" ? "Busca demorou demais" : "Banco temporariamente indisponível", "O código foi lido. Confira a internet ou cadastre o alimento pelo nome.", "⚠️");
+    setStatus(e?.name === "AbortError" ? "Busca demorou demais" : "Banco temporariamente indisponível", "O código foi lido. Confira a conexão e tente de novo. O cadastro manual continua disponível.", "⚠️");
   } finally {
     barcodeLookupBusy = false;
   }
@@ -3234,24 +3347,46 @@ function matchIngredient(available, need) {
 }
 
 function openRecipes() {
-  const available = foods.map(f => f.name.toLowerCase());
   const search = document.getElementById("recipeSearch");
   if (search) search.value = "";
-  if (available.length) renderRecipeSections(available);
-  else showAllRecipes();
+  activeRecipeCategory = "Todas";
+  updateRecipeCategoryChips();
+  showAllRecipes();
   showScreen("recipes");
+}
+
+function recipeCategory(recipe) {
+  const name = normalizeText(recipe.name);
+  if (/suco|vitamina|smoothie|cha |cafe |cappuccino|capuccino|limonada|caipirinha|agua saborizada|leite de coco/.test(name) || ["🥤", "💧", "☕"].includes(recipe.icon)) return "Bebidas";
+  if (/bolo|pudim|mousse|sorvete|brigadeiro|beijinho|pave|pavê|doce|brownie|cookie|biscoito|quindim|cocada|paçoca|pacoca|canjica|curau|rabanada|panna cotta|gelatina|chocolate quente|mingau/.test(name) || ["🍰", "🍫"].includes(recipe.icon)) return "Doces";
+  if (/sanduiche|sanduíche|lanche|pao |pão |torrada|tapioca|crepioca|panqueca|pizza|pastel|esfiha|coxinha|empada|hamburguer|hambúrguer|cachorro quente|wrap|quesadilla|bauru|focaccia|bruschetta|tostex|enroladinho/.test(name)) return "Lanches";
+  return "Pratos";
+}
+
+function updateRecipeCategoryChips() {
+  document.querySelectorAll("[data-recipe-category]").forEach(button => {
+    const active = button.dataset.recipeCategory === activeRecipeCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function setRecipeCategory(category) {
+  activeRecipeCategory = category;
+  updateRecipeCategoryChips();
+  showAllRecipes(document.getElementById("recipeSearch")?.value || "");
 }
 
 function showAllRecipes(query = "") {
   const list = document.getElementById("recipeList");
   const normalizedQuery = normalizeText(query.trim());
-  const pool = normalizedQuery
-    ? recipes.filter(r => normalizeText(r.name).includes(normalizedQuery) || r.needs.some(n => normalizeText(n).includes(normalizedQuery)))
-    : recipes;
-  const button = document.getElementById("recipeCatalogButton");
-  if (button) button.textContent = `Catálogo completo · ${recipes.length} receitas`;
+  const pool = recipes.filter(recipe => {
+    const matchesQuery = !normalizedQuery || normalizeText(recipe.name).includes(normalizedQuery) || recipe.needs.some(need => normalizeText(need).includes(normalizedQuery));
+    const matchesCategory = activeRecipeCategory === "Todas" || recipeCategory(recipe) === activeRecipeCategory;
+    return matchesQuery && matchesCategory;
+  });
   list.innerHTML = `
-    <p class="text-xs text-slate-400">${pool.length} ${pool.length === 1 ? "receita encontrada" : "receitas no catálogo"}</p>
+    <div class="flex items-center justify-between mb-2"><p class="text-xs font-semibold uppercase tracking-wide text-slate-400">${activeRecipeCategory === "Todas" ? "Cardápio completo" : esc(activeRecipeCategory)}</p><p class="text-xs text-slate-400">${pool.length} ${pool.length === 1 ? "receita" : "receitas"}</p></div>
     ${pool.length ? pool.map(r => recipeCard({ ...r, missing: [], expiringBoost: 0, showMissing: false })).join("") : `
       <div class="text-center py-10"><div class="text-4xl">🔎</div><p class="font-semibold text-slate-700 mt-3">Nenhuma receita encontrada.</p><p class="text-sm text-slate-400 mt-1">Tente buscar pelo nome de um alimento.</p></div>
     `}
@@ -3259,13 +3394,7 @@ function showAllRecipes(query = "") {
 }
 
 function searchRecipeCatalog(query) {
-  if (query.trim()) {
-    showAllRecipes(query);
-    return;
-  }
-  const available = foods.map(f => f.name.toLowerCase());
-  if (available.length) renderRecipeSections(available);
-  else showAllRecipes();
+  showAllRecipes(query);
 }
 
 function showFoodRecipes(name) {
@@ -3362,6 +3491,7 @@ function recipeCard(r) {
     : "";
 
   const diff = DIFFICULTY[r.level] || DIFFICULTY[2];
+  const categoryLabel = recipeCategory(r);
   const wasteBadge = r.expiringBoost > 0
     ? `<span class="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border border-orange-200 text-orange-700">Aproveita o que vence</span>`
     : "";
@@ -3375,6 +3505,7 @@ function recipeCard(r) {
           <div class="flex items-center gap-2 flex-wrap">
             <h4 class="font-semibold text-slate-800">${esc(r.name)}</h4>
             <span class="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold ${diff.cls}">${diff.label}</span>
+            <span class="shrink-0 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-50 text-slate-500">${categoryLabel}</span>
             ${wasteBadge}
           </div>
           <p class="text-xs text-slate-400 mt-1">${esc(r.time)}</p>
