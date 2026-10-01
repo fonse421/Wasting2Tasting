@@ -570,6 +570,13 @@
         <button onclick="startBarcodeScanner()" class="bg-green-600 text-white py-3 rounded-xl font-semibold text-sm">▦ Código de barras</button>
         <button onclick="captureAndClassify()" class="bg-slate-50 border border-slate-200 text-slate-700 py-3 rounded-xl font-semibold text-sm">📷 Foto + etiqueta</button>
       </div>
+      <div class="flex gap-2 mt-2">
+        <input id="barcodeManualInput" type="text" inputmode="numeric" autocomplete="off" maxlength="18"
+               placeholder="Ou digite o código de barras" aria-label="Código de barras"
+               class="min-w-0 flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-200"
+               onkeydown="if(event.key==='Enter') lookupBarcode(this.value)">
+        <button onclick="lookupBarcode(document.getElementById('barcodeManualInput').value)" class="shrink-0 bg-white border border-slate-200 text-slate-700 px-3 rounded-xl text-sm font-semibold">Buscar</button>
+      </div>
       <p class="text-[11px] text-slate-400 mt-2">Para carnes, aproxime a etiqueta e use “Foto + etiqueta”. O app tenta ler corte, peso e datas em português. Confira tudo antes de salvar.</p>
 
       <button onclick="openManualForm()" class="w-full mt-3 bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm">Cadastrar manualmente</button>
@@ -994,6 +1001,7 @@ let analyzing = false;
 let currentRecipe = null;
 let currentStepIndex = 0;
 let barcodeBusy = false;
+let barcodeLookupBusy = false;
 let deferredInstallPrompt = null;
 
 /* ============================================================
@@ -2486,12 +2494,21 @@ async function captureAndClassify() {
 
 function processVisualPredictions(predictions) {
   // MobileNet é um classificador genérico: mantenha apenas classes de alimentos
-  // que o app sabe apresentar. Rótulos que não são comida não viram identificações.
-  return predictions.map(p => ({
-    original: p.className,
-    name: normalizeLabel(p.className),
-    probability: p.probability
-  })).filter(p => p.name && p.probability >= 0.12);
+  // que o app sabe apresentar. Um limiar baixo preserva frutas/legumes menos
+  // confiantes; o resultado continua sendo uma sugestão a ser revisada.
+  const byName = new Map();
+  predictions.forEach((prediction, index) => {
+    const name = normalizeLabel(prediction.className);
+    const probability = Number(prediction.probability) || 0;
+    if (!name || probability < 0.035) return;
+
+    const existing = byName.get(name);
+    if (existing) existing.probability += probability;
+    else byName.set(name, { original: prediction.className, name, probability, rank: index });
+  });
+  return [...byName.values()]
+    .sort((a, b) => b.probability - a.probability)
+    .slice(0, 8);
 }
 
 function normalizeLabel(label) {
@@ -2501,9 +2518,15 @@ function normalizeLabel(label) {
     ["watermelon", "Melancia"], ["cantaloupe", "Melão"], ["melon", "Melão"], ["jackfruit", "Jaca"],
     ["pomegranate", "Romã"], ["fig", "Figo"], ["avocado", "Abacate"], ["orange", "Laranja"],
     ["lemon", "Limão"], ["lime", "Limão"], ["pineapple", "Abacaxi"], ["strawberry", "Morango"],
+    ["sweet potato", "Batata-doce"], ["potato", "Batata"], ["cassava", "Mandioca"], ["yuca", "Mandioca"],
+    ["papaya", "Mamão"], ["pawpaw", "Mamão"], ["coconut", "Coco"], ["kiwi", "Kiwi"],
+    ["pumpkin", "Abóbora"], ["squash", "Abóbora"], ["zucchini", "Abobrinha"], ["courgette", "Abobrinha"],
+    ["eggplant", "Berinjela"], ["aubergine", "Berinjela"], ["cauliflower", "Couve-flor"], ["spinach", "Espinafre"],
+    ["celery", "Aipo"], ["radish", "Rabanete"], ["beetroot", "Beterraba"], ["beet", "Beterraba"],
+    ["french loaf", "Pão"], ["bagel", "Pão"], ["pretzel", "Pão"], ["mashed potato", "Batata"],
     ["raspberry", "Framboesa"], ["blueberry", "Mirtilo"], ["grape", "Uva"], ["pear", "Pera"],
     ["peach", "Pêssego"], ["plum", "Ameixa"], ["cherry", "Cereja"], ["tomato", "Tomate"],
-    ["carrot", "Cenoura"], ["potato", "Batata"], ["broccoli", "Brócolis"], ["cucumber", "Pepino"],
+    ["carrot", "Cenoura"], ["broccoli", "Brócolis"], ["cucumber", "Pepino"],
     ["onion", "Cebola"], ["garlic", "Alho"], ["corn", "Milho"], ["mushroom", "Cogumelo"],
     ["bell pepper", "Pimentão"], ["pepper", "Pimenta"], ["lettuce", "Alface"], ["cabbage", "Repolho"],
     ["milk", "Leite"], ["cheese", "Queijo"], ["egg", "Ovo"], ["bread", "Pão"], ["chicken", "Frango"],
@@ -2706,8 +2729,12 @@ function combineResults(visualResults, ocrText, searchResults, packageInfo = {})
   }
 
   visualResults.slice(0, 5).forEach(result => {
-    if (result.probability >= 0.15) {
-      addScore(result.name, Math.round(result.probability * 35), "IA visual");
+    if (result.probability >= 0.035) {
+      // A confiança do MobileNet costuma ser baixa em fotos reais de celular;
+      // não descarte automaticamente a classe de alimento mais provável.
+      const rankPenalty = Math.max(0, (result.rank || 0) - 1) * 2;
+      const visualScore = Math.max(20, Math.round(18 + result.probability * 55 - rankPenalty));
+      addScore(result.name, visualScore, "IA visual");
     }
   });
 
@@ -2951,11 +2978,14 @@ async function startBarcodeScanner() {
     html5Qr = new Html5Qrcode("reader");
 
     await html5Qr.start(
-      { facingMode: "environment" },
+      { facingMode: { ideal: "environment" } },
       {
-        fps: 10,
-        qrbox: { width: 280, height: 140 },
-        aspectRatio: 1.777
+        fps: 12,
+        qrbox: (width, height) => ({
+          width: Math.floor(width * 0.92),
+          height: Math.floor(Math.min(height * 0.62, Math.max(120, width * 0.32)))
+        }),
+        aspectRatio: 1.333
       },
       code => barcodeFound(code),
       () => {}
@@ -2970,7 +3000,7 @@ async function startBarcodeScanner() {
     document.getElementById("aiCamera").classList.remove("hidden");
     document.getElementById("cameraOverlay").classList.remove("hidden");
 
-    setStatus("Não foi possível ler o código", "Você ainda pode usar a IA ou cadastrar manualmente.", "⚠️");
+    setStatus("Não foi possível abrir o leitor", "Confira a permissão da câmera ou digite os números do código abaixo.", "⚠️");
 
     await startCamera();
   } finally {
@@ -3005,13 +3035,36 @@ async function barcodeFound(code) {
   if (!code) return;
 
   await stopBarcodeScanner();
+  await lookupBarcode(code);
+}
 
-  setStatus("Código encontrado", `Consultando produto ${code}...`, "🔎");
+async function lookupBarcode(rawCode) {
+  if (barcodeLookupBusy) return;
+  const code = String(rawCode || "").replace(/\D/g, "");
+  const input = document.getElementById("barcodeManualInput");
+  if (input && rawCode) input.value = code;
+  if (!/^\d{8,14}$/.test(code)) {
+    setStatus("Confira o código", "Digite os 8 a 14 números do código de barras.", "🔢");
+    input?.focus();
+    return;
+  }
+
+  barcodeLookupBusy = true;
+  setStatus("Código lido", `Procurando o produto ${code}...`, "🔎");
 
   try {
-    const r = await fetch(
-      OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json"
-    );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    let r;
+    try {
+      r = await fetch(
+        OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json",
+        { signal: controller.signal, headers: { Accept: "application/json" } }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!r.ok) throw new Error(`Open Food Facts respondeu com HTTP ${r.status}`);
 
     const data = await r.json();
 
@@ -3019,6 +3072,7 @@ async function barcodeFound(code) {
       const p = data.product;
       const name =
         p.product_name_pt ||
+        p.product_name_pt_br ||
         p.product_name ||
         "Produto identificado";
 
@@ -3033,12 +3087,14 @@ async function barcodeFound(code) {
       setStatus("Produto encontrado", "Confira e salve — é a fonte mais confiável.", "✓");
     } else {
       openManualForm();
-      setStatus("Produto não encontrado", "Digite o nome manualmente.", "⚠️");
+      setStatus("Produto fora do catálogo", "O código foi lido, mas não está no banco. Digite o nome para cadastrar.", "⚠️");
     }
   } catch (e) {
     console.error(e);
     openManualForm();
-    setStatus("Sem resposta do banco", "Digite o nome manualmente.", "⚠️");
+    setStatus(e?.name === "AbortError" ? "Busca demorou demais" : "Banco temporariamente indisponível", "O código foi lido. Confira a internet ou cadastre o alimento pelo nome.", "⚠️");
+  } finally {
+    barcodeLookupBusy = false;
   }
 }
 
