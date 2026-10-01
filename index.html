@@ -351,6 +351,11 @@
       <p class="text-sm text-slate-400">Sugestões</p>
       <h2 class="text-2xl font-extrabold mt-1">Receitas</h2>
       <p class="text-sm text-slate-400 mt-1">Toque numa receita para ver o passo a passo.</p>
+      <label class="block mt-4">
+        <span class="sr-only">Buscar receitas ou ingredientes</span>
+        <input id="recipeSearch" type="search" oninput="searchRecipeCatalog(this.value)" placeholder="Buscar receita ou ingrediente" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-green-500">
+      </label>
+      <button id="recipeCatalogButton" onclick="showAllRecipes()" class="w-full mt-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700">Explorar catálogo completo</button>
       <div id="recipeList" class="space-y-3 mt-5"></div>
     </section>
 
@@ -3218,7 +3223,9 @@ function ingredientPhraseIncludes(text, phrase) {
   const phraseForms = [normalizedPhrase, singularizeIngredientText(normalizedPhrase)];
   return textForms.some(textForm => phraseForms.some(phraseForm =>
     textForm === phraseForm || textForm.startsWith(phraseForm + " ") ||
-    textForm.endsWith(" " + phraseForm) || textForm.includes(" " + phraseForm + " ")
+    textForm.endsWith(" " + phraseForm) || textForm.includes(" " + phraseForm + " ") ||
+    phraseForm.startsWith(textForm + " ") || phraseForm.endsWith(" " + textForm) ||
+    phraseForm.includes(" " + textForm + " ")
   ));
 }
 
@@ -3228,8 +3235,37 @@ function matchIngredient(available, need) {
 
 function openRecipes() {
   const available = foods.map(f => f.name.toLowerCase());
-  renderRecipeSections(available);
+  const search = document.getElementById("recipeSearch");
+  if (search) search.value = "";
+  if (available.length) renderRecipeSections(available);
+  else showAllRecipes();
   showScreen("recipes");
+}
+
+function showAllRecipes(query = "") {
+  const list = document.getElementById("recipeList");
+  const normalizedQuery = normalizeText(query.trim());
+  const pool = normalizedQuery
+    ? recipes.filter(r => normalizeText(r.name).includes(normalizedQuery) || r.needs.some(n => normalizeText(n).includes(normalizedQuery)))
+    : recipes;
+  const button = document.getElementById("recipeCatalogButton");
+  if (button) button.textContent = `Catálogo completo · ${recipes.length} receitas`;
+  list.innerHTML = `
+    <p class="text-xs text-slate-400">${pool.length} ${pool.length === 1 ? "receita encontrada" : "receitas no catálogo"}</p>
+    ${pool.length ? pool.map(r => recipeCard({ ...r, missing: [], expiringBoost: 0, showMissing: false })).join("") : `
+      <div class="text-center py-10"><div class="text-4xl">🔎</div><p class="font-semibold text-slate-700 mt-3">Nenhuma receita encontrada.</p><p class="text-sm text-slate-400 mt-1">Tente buscar pelo nome de um alimento.</p></div>
+    `}
+  `;
+}
+
+function searchRecipeCatalog(query) {
+  if (query.trim()) {
+    showAllRecipes(query);
+    return;
+  }
+  const available = foods.map(f => f.name.toLowerCase());
+  if (available.length) renderRecipeSections(available);
+  else showAllRecipes();
 }
 
 function showFoodRecipes(name) {
@@ -3318,7 +3354,7 @@ function renderRecipeSections(available, filterWord) {
 }
 
 function recipeCard(r) {
-  const missingText = r.missing?.length
+  const missingText = r.showMissing !== false && r.missing?.length
     ? `
       <p class="text-xs text-orange-600 mt-1">Falta: ${r.missing.map(esc).join(", ")}</p>
       <button onclick="event.stopPropagation(); addRecipeMissingToShopping('${attr(r.name)}')" class="mt-2 text-[11px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">Adicionar faltantes à lista</button>
