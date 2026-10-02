@@ -19,10 +19,6 @@
   <script>
     tailwind.config = { darkMode: 'class' };
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
     * { -webkit-tap-highlight-color: transparent; }
@@ -34,6 +30,7 @@
     button, input, select { font: inherit; }
     button { transition: transform .12s ease, background-color .15s ease, border-color .15s ease; }
     button:active { transform: scale(.97); }
+    :focus-visible { outline: 3px solid #15803d; outline-offset: 2px; }
     .screen { will-change: opacity, transform; }
     /* Barra de rolagem discreta nas faixas horizontais */
     .overflow-x-auto::-webkit-scrollbar { height: 0; }
@@ -204,11 +201,11 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="openExpiryAlertManual()" class="relative w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+        <button aria-label="Ver alertas de validade" onclick="openExpiryAlertManual()" class="relative w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">
           <span class="text-lg">🔔</span>
           <span id="notifyBellBadge" class="hidden absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">0</span>
         </button>
-        <button onclick="showScreen('profile')" class="w-10 h-10 rounded-full bg-white border border-slate-200">👤</button>
+        <button aria-label="Abrir perfil" onclick="showScreen('profile')" class="w-10 h-10 rounded-full bg-white border border-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700">👤</button>
       </div>
     </div>
   </header>
@@ -396,6 +393,15 @@
         </div>
       </div>
 
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 mb-3 flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl">🔔</span>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm">Lembretes de validade</p>
+          <p id="notificationPreferenceText" class="text-xs text-slate-500 mt-0.5">Ative para receber avisos neste aparelho.</p>
+        </div>
+        <button id="enableNotificationsBtn" onclick="enableExpiryNotifications()" class="shrink-0 bg-green-600 text-white rounded-xl px-3 py-2 text-xs font-semibold">Ativar</button>
+      </div>
+
       <div class="mb-3">
         <button id="darkModeBtn" onclick="toggleDarkMode()"
                 class="w-full bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 text-left">
@@ -432,6 +438,16 @@
           <p class="text-xs text-slate-400 mt-1">Soma dos itens com preço cadastrado</p>
         </div>
         <p id="pantryValue" class="text-lg font-extrabold text-green-600">R$ 0,00</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-3">
+        <p class="font-semibold text-sm text-slate-800">Backup da despensa</p>
+        <p class="text-xs text-slate-500 mt-1 leading-relaxed">Seus dados ficam salvos neste navegador. Exporte uma cópia para transferir ou recuperar alimentos e lista de compras.</p>
+        <div class="grid grid-cols-2 gap-2 mt-3">
+          <button onclick="exportBackup()" class="bg-green-600 text-white rounded-xl py-2.5 text-sm font-semibold">Exportar dados</button>
+          <button onclick="document.getElementById('backupFileInput').click()" class="bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-sm font-semibold">Importar cópia</button>
+        </div>
+        <input id="backupFileInput" type="file" accept="application/json,.json" class="hidden" onchange="importBackup(this.files?.[0]); this.value=''">
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-3">
@@ -925,8 +941,10 @@ class StorageManager {
   writeList(key, list) {
     try {
       localStorage.setItem(key, JSON.stringify(list));
+      return true;
     } catch (error) {
       console.error("Erro ao salvar", key, error);
+      return false;
     }
   }
 
@@ -936,7 +954,7 @@ class StorageManager {
   }
 
   saveFoods(list) {
-    this.writeList(this.KEYS.foods, list);
+    return this.writeList(this.KEYS.foods, list);
   }
 
   /* ===== LISTA DE COMPRAS ===== */
@@ -945,7 +963,7 @@ class StorageManager {
   }
 
   saveShoppingList(list) {
-    this.writeList(this.KEYS.shopping, list);
+    return this.writeList(this.KEYS.shopping, list);
   }
 
   /* ===== HISTÓRICO ===== */
@@ -956,7 +974,7 @@ class StorageManager {
   saveHistory(list) {
     // Mantém apenas as 300 entradas mais recentes, para o localStorage
     // não crescer indefinidamente com o uso ao longo dos meses.
-    this.writeList(this.KEYS.history, list.slice(-300));
+    return this.writeList(this.KEYS.history, list.slice(-300));
   }
 
   /* ===== PREFERÊNCIAS ===== */
@@ -981,9 +999,9 @@ class StorageManager {
 
   importData(data) {
     try {
-      if (Array.isArray(data.foods)) this.saveFoods(data.foods);
-      if (Array.isArray(data.shopping)) this.saveShoppingList(data.shopping);
-      if (Array.isArray(data.history)) this.saveHistory(data.history);
+      if (Array.isArray(data.foods) && !this.saveFoods(data.foods)) return false;
+      if (Array.isArray(data.shopping) && !this.saveShoppingList(data.shopping)) return false;
+      if (Array.isArray(data.history) && !this.saveHistory(data.history)) return false;
       if (data.theme) this.saveTheme(data.theme);
       return true;
     } catch (error) {
@@ -1329,17 +1347,17 @@ function loadFoods() {
 }
 
 function saveDB() {
-  db.saveFoods(foods);
+  if (!db.saveFoods(foods)) showToast("Não foi possível salvar. Libere espaço no navegador e exporte seus dados.", "⚠️");
 }
 
 // Adiciona um alimento à despensa. Se já existir um item com o mesmo nome,
 // soma a quantidade em vez de criar um novo cartão (ex: Leite × 3).
-function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate }) {
+function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, separateBatch = false }) {
   qty = Math.max(1, parseInt(qty, 10) || 1);
   storage = storage || "despensa";
 
   const normalized = normalizeText(name);
-  const existing = foods.find(f => normalizeText(f.name) === normalized && (!weight || !f.weight || f.weight === weight));
+  const existing = separateBatch ? null : foods.find(f => normalizeText(f.name) === normalized && (!weight || !f.weight || f.weight === weight));
 
   if (existing) {
     existing.qty = (existing.qty || 1) + qty;
@@ -1366,6 +1384,56 @@ function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate 
   }
 
   saveDB();
+}
+
+function saveFoodExpiry(id) {
+  const food = foods.find(item => Number(item.id) === Number(id));
+  const input = document.getElementById(`expiryUpdate${Number(id)}`);
+  if (!food || !input?.value) { showToast("Escolha a data impressa na embalagem.", "📅"); return; }
+  food.expiry = input.value;
+  food.expirySource = "label-confirmed";
+  saveDB();
+  render();
+  showToast("Validade salva. Confira a data no rótulo.", "✓");
+}
+
+function exportBackup() {
+  try {
+    const content = JSON.stringify({ app: "Wasting2Tasting", version: 1, ...db.exportData() }, null, 2);
+    const blob = new Blob([content], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `wasting2tasting-backup-${todayISO()}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast("Cópia dos dados exportada.", "✓");
+  } catch (error) {
+    console.error("Falha ao exportar dados:", error);
+    showToast("Não foi possível exportar. Tente novamente.", "⚠️");
+  }
+}
+
+async function importBackup(file) {
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.foods) || !Array.isArray(data.shopping) || !Array.isArray(data.history)) {
+      throw new Error("Arquivo de backup inválido");
+    }
+    if (!confirm("Importar esta cópia substituirá os alimentos, a lista de compras e o histórico atuais neste navegador. Continuar?")) return;
+    if (!db.importData(data)) throw new Error("Falha ao gravar a cópia");
+    foods = loadFoods();
+    shoppingList = loadShoppingList();
+    history = loadHistory();
+    initDarkMode();
+    render();
+    renderShopping();
+    showToast("Cópia importada com sucesso.", "✓");
+  } catch (error) {
+    console.error("Falha ao importar backup:", error);
+    alert("Não foi possível importar esse arquivo. Selecione um backup JSON exportado pelo Wasting2Tasting.");
+  }
 }
 
 /* ============================================================
@@ -1642,6 +1710,7 @@ function card(food) {
     status === "Vencido" ? "text-red-600" :
     status === "Vence logo" ? "text-orange-600" :
     status === "Sem validade" ? "text-slate-400" : "text-green-700";
+  const expiryEditor = !food.expiry ? `<div class="flex gap-2 mt-2"><input id="expiryUpdate${Number(food.id)}" type="date" aria-label="Data de validade de ${esc(food.name)}" class="min-w-0 flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-xs"><button onclick="saveFoodExpiry(${Number(food.id)})" class="bg-amber-50 text-amber-800 rounded-lg px-2 py-1.5 text-xs font-semibold">Adicionar validade</button></div>` : "";
 
   const actionsRow = status === "Vencido"
     ? `<button onclick="discardFood(${Number(food.id)})" class="w-full bg-red-50 text-red-600 rounded-xl py-2.5 text-xs font-semibold">🗑 Descartar${qty > 1 ? ` (${qty})` : ""}</button>`
@@ -1666,6 +1735,7 @@ function card(food) {
             </span>
           </div>
           <p class="text-xs text-slate-400 mt-0.5">Validade: ${expiryText}</p>
+          ${expiryEditor}
           ${food.weight || food.packedDate ? `<p class="text-xs text-slate-500 mt-1">${food.weight ? `Peso: ${esc(food.weight)}` : ""}${food.packedDate ? `${food.weight ? " • " : ""}Embalado: ${new Date(food.packedDate + "T00:00:00").toLocaleDateString("pt-BR")}` : ""}</p>` : ""}
           ${priceText}
         </div>
@@ -2343,10 +2413,9 @@ async function openScanner() {
   document.getElementById("aiCamera").classList.remove("hidden");
   document.getElementById("cameraOverlay").classList.remove("hidden");
 
-  setStatus("Inicializando câmera...", "Permita o acesso à câmera quando solicitado.", "⏳");
+  setStatus("Scanner pronto", "Escolha o código de barras ou foto. Os recursos de leitura serão carregados quando necessários.", "📷");
 
   await startCamera();
-  await loadAI();
 }
 
 async function closeScanner() {
@@ -2396,20 +2465,32 @@ async function startCamera() {
   }
 }
 
+const externalScriptPromises = new Map();
+function loadExternalScript(src, globalName) {
+  if (window[globalName]) return Promise.resolve(window[globalName]);
+  if (externalScriptPromises.has(src)) return externalScriptPromises.get(src);
+  const promise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = () => window[globalName] ? resolve(window[globalName]) : reject(new Error("Biblioteca carregada sem inicializar: " + globalName));
+    script.onerror = () => reject(new Error("Não foi possível carregar o recurso de leitura. Verifique a conexão e tente novamente."));
+    document.head.appendChild(script);
+  });
+  externalScriptPromises.set(src, promise);
+  promise.catch(() => externalScriptPromises.delete(src));
+  return promise;
+}
+
 async function loadAI() {
   if (model) return model;
   if (aiLoadPromise) return aiLoadPromise;
 
   aiLoadPromise = (async () => {
     try {
-      if (typeof tf === "undefined") {
-        throw new Error("TensorFlow.js não carregou. Verifique a conexão e recarregue a página.");
-      }
-      if (typeof mobilenet === "undefined") {
-        throw new Error("A biblioteca MobileNet não carregou. Verifique a conexão e recarregue a página.");
-      }
-
       setStatus("Carregando IA visual...", "Baixando o modelo; na primeira vez pode demorar.", "🧠");
+      await loadExternalScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js", "tf");
+      await loadExternalScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js", "mobilenet");
       await tf.ready();
 
       // Alguns celulares têm WebGL indisponível ou instável. Tente primeiro a GPU
@@ -2474,7 +2555,7 @@ function hideProgress() {
 async function captureAndClassify() {
   if (analyzing || scannerRunning) return;
 
-  if (!model && !aiLoadError) await loadAI();
+  if (!model) await loadAI();
 
   const video = document.getElementById("aiCamera");
 
@@ -2605,7 +2686,7 @@ function normalizeLabel(label) {
 
 async function runOCR(canvas) {
   try {
-    if (typeof Tesseract === "undefined") return "";
+    await loadExternalScript("https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js", "Tesseract");
     const recognize = async image => {
       const result = await Tesseract.recognize(image, "por", {
         logger: message => {
@@ -3006,6 +3087,7 @@ function openManualForm(name) {
   document.getElementById("foodQty").value = 1;
   document.getElementById("foodPrice").value = "";
   const matchingPrediction = name && lastPrediction?.name === name ? lastPrediction : null;
+  document.getElementById("productForm").dataset.separateBatch = matchingPrediction ? "true" : "false";
   document.getElementById("foodPackageWeight").value = matchingPrediction?.packageInfo?.weight || "";
   document.getElementById("foodPackedDate").value = matchingPrediction?.packageInfo?.packedDate || "";
   document.getElementById("foodStorage").value = "despensa";
@@ -3042,7 +3124,8 @@ function saveFood() {
     return;
   }
 
-  addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate });
+  const separateBatch = document.getElementById("productForm").dataset.separateBatch === "true";
+  addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, separateBatch });
 
   // Se o alimento estava pendente na lista de compras, marca como resolvido.
   const normalized = normalizeText(name);
@@ -3111,9 +3194,7 @@ async function startBarcodeScanner() {
       cameraStream.getTracks().forEach(track => track.stop());
       cameraStream = null;
     }
-    if (typeof Html5Qrcode === "undefined") {
-      throw new Error("A biblioteca do leitor não carregou.");
-    }
+    await loadExternalScript("https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js", "Html5Qrcode");
     document.getElementById("aiCamera").classList.add("hidden");
     document.getElementById("cameraOverlay").classList.add("hidden");
     document.getElementById("reader").classList.remove("hidden");
@@ -3229,8 +3310,9 @@ async function registerScannedProduct(product, code) {
 
   const storage = barcodeStorageForProduct(product, name);
   const weight = String(product?.quantity || "").trim();
-  const expiry = estimateExpiryDate(name, storage);
-  addOrMergeFood({ name, expiry, qty: 1, storage, weight });
+  // O código de barras não contém a validade impressa desta embalagem.
+  // Mantemos cada pacote separado e deixamos a data em branco até conferência.
+  addOrMergeFood({ name, expiry: "", qty: 1, storage, weight, separateBatch: true });
 
   const normalized = normalizeText(name);
   const pendingMatch = shoppingList.find(item => !item.checked && normalizeText(item.name) === normalized);
@@ -3243,10 +3325,10 @@ async function registerScannedProduct(product, code) {
   render();
   const brand = String(product?.brands || "").split(",")[0].trim();
   const label = brand && !normalizeText(name).includes(normalizeText(brand)) ? `${name} · ${brand}` : name;
-  setStatus("Produto cadastrado na despensa", `${label}. A validade foi estimada: confira a data impressa na embalagem.`, "✓");
+  setStatus("Produto cadastrado na despensa", `${label}. Confira a embalagem e adicione a validade impressa no cartão do alimento.`, "✓");
   await closeScanner();
   showScreen("pantry");
-  showToast(`${name} cadastrado automaticamente. Confira a validade no rótulo.`, "✓");
+  showToast(`${name} cadastrado. Adicione a validade impressa na embalagem.`, "✓");
   return true;
 }
 
@@ -3773,10 +3855,36 @@ function updateNotifyBellBadge() {
 }
 
 function requestNotificationPermission() {
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
+  return "Notification" in window ? Notification.permission : "unsupported";
+}
+
+async function enableExpiryNotifications() {
+  if (!("Notification" in window)) {
+    showToast("Este navegador não oferece notificações.", "ℹ️");
+    updateNotificationPreferenceUI();
+    return;
   }
+  if (Notification.permission === "default") {
+    try { await Notification.requestPermission(); } catch (error) { console.warn("Permissão de notificação negada:", error); }
+  }
+  updateNotificationPreferenceUI();
+  if (Notification.permission === "granted") {
+    showToast("Lembretes ativados neste aparelho.", "✓");
+    checkAndNotifyExpirations();
+  } else {
+    showToast("Permissão não ativada. Você ainda pode consultar os avisos no app.", "ℹ️");
+  }
+}
+
+function updateNotificationPreferenceUI() {
+  const text = document.getElementById("notificationPreferenceText");
+  const button = document.getElementById("enableNotificationsBtn");
+  if (!text || !button) return;
+  const permission = requestNotificationPermission();
+  text.textContent = permission === "granted" ? "Ativado neste aparelho." : permission === "denied" ? "Bloqueado nas configurações do navegador." : permission === "unsupported" ? "Não disponível neste navegador." : "Ative para receber avisos neste aparelho.";
+  button.textContent = permission === "granted" ? "Ativo" : permission === "denied" || permission === "unsupported" ? "Indisponível" : "Ativar";
+  button.disabled = permission === "granted" || permission === "denied" || permission === "unsupported";
+  button.classList.toggle("opacity-50", button.disabled);
 }
 
 function sendSystemNotification(title, body) {
@@ -4773,7 +4881,7 @@ document.addEventListener("keydown", e => {
 initDarkMode();
 render();
 renderShopping();
-requestNotificationPermission();
+updateNotificationPreferenceUI();
 checkAndNotifyExpirations();
 setInterval(render, 60000);
 </script>

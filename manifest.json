@@ -1,6 +1,6 @@
 {
-  "name": "Waste2Taste",
-  "short_name": "Waste2Taste",
+  "name": "Wasting2Tasting",
+  "short_name": "W2Tasting",
   "description": "Despensa inteligente com IA: controle a validade dos alimentos, escaneie produtos, gere lista de compras e receba sugestões de receitas.",
   "start_url": "./index.html",
   "scope": "./",

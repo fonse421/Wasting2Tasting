@@ -1,12 +1,12 @@
 /* ============================================================
-   SERVICE WORKER — Waste2Taste
+   SERVICE WORKER — Wasting2Tasting
    Guarda uma cópia do "esqueleto" do app para abrir rápido
    e funcionar mesmo sem internet. Dados salvos (despensa,
    lista de compras) continuam no localStorage do navegador,
    isso aqui só cuida dos arquivos do app em si.
 ============================================================ */
 
-const CACHE_VERSION = "waste2taste-v2";
+const CACHE_VERSION = "wasting2tasting-v3";
 
 // Arquivos essenciais do app (o "esqueleto")
 const APP_SHELL = [
