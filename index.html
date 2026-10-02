@@ -217,6 +217,21 @@
       <p class="text-sm text-slate-400">Sua despensa</p>
       <h2 class="text-2xl font-extrabold mt-1">O que temos hoje?</h2>
 
+      <div id="firstRunGuide" class="hidden bg-green-50 border border-green-100 rounded-2xl p-4 mt-4" role="region" aria-label="Primeiros passos">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl" aria-hidden="true">🌱</span>
+          <div class="flex-1">
+            <p class="font-bold text-sm text-green-900">Vamos começar pela sua despensa</p>
+            <p class="text-xs text-green-800 mt-1 leading-relaxed">Adicione um alimento manualmente ou use o scanner. A IA sugere o nome; confira sempre a validade impressa. Seus dados ficam neste navegador — faça backup no Perfil.</p>
+            <div class="flex gap-2 mt-3">
+              <button onclick="openManualAdd(); dismissFirstRunGuide()" class="bg-white border border-green-200 text-green-900 rounded-xl px-3 py-2 text-xs font-semibold">Adicionar alimento</button>
+              <button onclick="openScanner(); dismissFirstRunGuide()" class="bg-green-700 text-white rounded-xl px-3 py-2 text-xs font-semibold">Abrir scanner</button>
+            </div>
+          </div>
+          <button onclick="dismissFirstRunGuide()" aria-label="Fechar primeiros passos" class="text-green-700">✕</button>
+        </div>
+      </div>
+
       <button onclick="openScanner()" class="w-full mt-4 rounded-2xl bg-green-600 text-white p-4 flex items-center gap-3 active:scale-[.98]">
         <div class="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl">📷</div>
         <p class="font-semibold flex-1 text-left">Escanear com IA</p>
@@ -451,6 +466,11 @@
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-3">
+        <p class="font-semibold text-sm text-slate-800">Seus dados e privacidade</p>
+        <p class="text-xs text-slate-500 mt-2 leading-relaxed">A despensa e a lista ficam neste navegador. Ao consultar um código de barras ou pesquisar um nome, o código ou texto da busca é enviado ao Open Food Facts para procurar informações do produto. Fotos são analisadas no aparelho; o app não envia a imagem.</p>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-3">
         <p class="font-semibold text-sm text-slate-800">Sobre o Wasting2Tasting</p>
         <p class="text-sm text-slate-500 mt-2 leading-relaxed">
           O Wasting2Tasting é o seu assistente pessoal de despensa. Ele ajuda a acompanhar a
@@ -608,6 +628,8 @@
         <button onclick="startBarcodeScanner()" class="bg-green-600 text-white py-3 rounded-xl font-semibold text-sm">▦ Código de barras</button>
         <button onclick="captureAndClassify()" class="bg-slate-50 border border-slate-200 text-slate-700 py-3 rounded-xl font-semibold text-sm">📷 Foto + etiqueta</button>
       </div>
+      <button onclick="document.getElementById('foodPhotoInput').click()" class="w-full mt-2 bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl font-semibold text-sm">🖼️ Escolher foto da galeria</button>
+      <input id="foodPhotoInput" type="file" accept="image/*" class="hidden" onchange="analyzeSelectedImage(this.files?.[0]); this.value=''">
       <button onclick="toggleManualBarcodeEntry()" class="text-xs font-semibold text-slate-500 mt-3 py-2">Digitar código manualmente</button>
       <div id="manualBarcodeEntry" class="hidden flex gap-2 mt-1">
         <input id="barcodeManualInput" type="text" inputmode="numeric" autocomplete="off" maxlength="18"
@@ -661,6 +683,7 @@
 
         <label class="text-sm font-semibold text-slate-700 block mt-4">Validade <span class="text-slate-400 font-normal">(estimativa de conservação; confira a data impressa na embalagem)</span></label>
         <input id="expiryDate" type="date" class="w-full mt-2 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-200">
+        <label class="flex items-center gap-2 mt-2 text-xs text-slate-600"><input id="foodExpiryConfirmed" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-green-600"> Conferi esta data na embalagem</label>
 
         <label class="text-sm font-semibold text-slate-700 block mt-4">Preço <span class="text-slate-400 font-normal">(opcional)</span></label>
         <input id="foodPrice" type="number" min="0" step="0.01" placeholder="R$ 0,00" class="w-full mt-2 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-200">
@@ -711,11 +734,39 @@
 
       <label class="text-sm font-semibold text-slate-700 block mt-4">Validade <span class="text-slate-400 font-normal">(estimativa de conservação; confira a data impressa na embalagem)</span></label>
       <input id="manualExpiryDate" type="date" class="w-full mt-2 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-200">
+      <label class="flex items-center gap-2 mt-2 text-xs text-slate-600"><input id="manualExpiryConfirmed" type="checkbox" class="w-4 h-4 rounded border-slate-300 text-green-600"> Conferi esta data na embalagem</label>
 
       <label class="text-sm font-semibold text-slate-700 block mt-4">Preço <span class="text-slate-400 font-normal">(opcional)</span></label>
       <input id="manualFoodPrice" type="number" min="0" step="0.01" placeholder="R$ 0,00" class="w-full mt-2 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-200">
 
       <button onclick="saveManualFood()" class="w-full mt-5 bg-green-600 text-white py-4 rounded-2xl font-semibold">Salvar na despensa</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIÇÃO DO ALIMENTO -->
+<div id="foodEditorModal" class="hidden fixed inset-0 z-[60] modal-bg flex items-end justify-center" role="dialog" aria-modal="true" aria-labelledby="foodEditorTitle">
+  <div class="bg-white w-full max-w-md rounded-t-[28px] overflow-hidden max-h-[92vh] overflow-y-auto">
+    <div class="p-4 flex items-center justify-between border-b border-slate-200">
+      <div><p class="text-xs text-slate-400">Minha despensa</p><h3 id="foodEditorTitle" class="font-bold text-lg">Editar alimento</h3></div>
+      <button onclick="closeFoodEditor()" aria-label="Fechar edição" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500">✕</button>
+    </div>
+    <div class="p-5">
+      <label for="editFoodName" class="text-sm font-semibold text-slate-700">Nome</label>
+      <input id="editFoodName" class="w-full mt-1 border border-slate-200 rounded-xl px-4 py-3" autocomplete="off">
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div><label for="editFoodExpiry" class="text-sm font-semibold text-slate-700">Validade impressa</label><input id="editFoodExpiry" type="date" class="w-full mt-1 border border-slate-200 rounded-xl px-3 py-3"></div>
+        <div><label for="editFoodQty" class="text-sm font-semibold text-slate-700">Quantidade</label><input id="editFoodQty" type="number" min="1" step="1" class="w-full mt-1 border border-slate-200 rounded-xl px-3 py-3"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div><label for="editFoodStorage" class="text-sm font-semibold text-slate-700">Guardado em</label><select id="editFoodStorage" class="w-full mt-1 border border-slate-200 rounded-xl px-3 py-3 bg-white"><option value="despensa">Despensa</option><option value="geladeira">Geladeira</option><option value="congelador">Congelador</option></select></div>
+        <div><label for="editFoodWeight" class="text-sm font-semibold text-slate-700">Peso/quantidade</label><input id="editFoodWeight" class="w-full mt-1 border border-slate-200 rounded-xl px-3 py-3" placeholder="Ex.: 500 g"></div>
+      </div>
+      <label for="editFoodPackedDate" class="text-sm font-semibold text-slate-700 block mt-4">Embalado em</label>
+      <input id="editFoodPackedDate" type="date" class="w-full mt-1 border border-slate-200 rounded-xl px-3 py-3">
+      <p class="text-xs text-slate-500 mt-3">Para produtos embalados, copie a validade do rótulo. Não use a data estimada como substituta.</p>
+      <button onclick="saveFoodEdits()" class="w-full mt-4 bg-green-600 text-white py-3 rounded-xl font-semibold">Salvar alterações</button>
+      <button onclick="removeFoodFromEditor()" class="w-full mt-2 bg-red-50 text-red-700 py-3 rounded-xl font-semibold">Remover da despensa</button>
     </div>
   </div>
 </div>
@@ -983,7 +1034,8 @@ class StorageManager {
   }
 
   saveTheme(theme) {
-    localStorage.setItem(this.KEYS.theme, theme);
+    try { localStorage.setItem(this.KEYS.theme, theme); return true; }
+    catch (error) { console.error("Erro ao salvar tema:", error); return false; }
   }
 
   /* ===== UTILITÁRIOS ===== */
@@ -998,14 +1050,24 @@ class StorageManager {
   }
 
   importData(data) {
+    const previous = this.exportData();
     try {
-      if (Array.isArray(data.foods) && !this.saveFoods(data.foods)) return false;
-      if (Array.isArray(data.shopping) && !this.saveShoppingList(data.shopping)) return false;
-      if (Array.isArray(data.history) && !this.saveHistory(data.history)) return false;
-      if (data.theme) this.saveTheme(data.theme);
+      if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("Arquivo de cópia inválido.");
+      if (data.foods !== undefined && (!Array.isArray(data.foods) || !data.foods.every(item => item && typeof item.name === "string" && item.name.trim() && item.name.length <= 120 && Number.isFinite(Number(item.qty)) && Number(item.qty) >= 1))) throw new Error("A cópia contém alimentos inválidos.");
+      if (data.shopping !== undefined && (!Array.isArray(data.shopping) || !data.shopping.every(item => item && typeof item.name === "string" && item.name.trim() && item.name.length <= 120))) throw new Error("A cópia contém itens de compra inválidos.");
+      if (data.history !== undefined && !Array.isArray(data.history)) throw new Error("O histórico da cópia é inválido.");
+      if (data.theme !== undefined && !["light", "dark"].includes(data.theme)) throw new Error("O tema da cópia é inválido.");
+      if (Array.isArray(data.foods) && !this.saveFoods(data.foods)) throw new Error("Não foi possível salvar a despensa importada.");
+      if (Array.isArray(data.shopping) && !this.saveShoppingList(data.shopping)) throw new Error("Não foi possível salvar a lista importada.");
+      if (Array.isArray(data.history) && !this.saveHistory(data.history)) throw new Error("Não foi possível salvar o histórico importado.");
+      if (data.theme && !this.saveTheme(data.theme)) throw new Error("Não foi possível salvar as preferências importadas.");
       return true;
     } catch (error) {
       console.error("Erro ao importar dados:", error);
+      this.saveFoods(previous.foods);
+      this.saveShoppingList(previous.shopping);
+      this.saveHistory(previous.history);
+      this.saveTheme(previous.theme);
       return false;
     }
   }
@@ -1347,17 +1409,29 @@ function loadFoods() {
 }
 
 function saveDB() {
-  if (!db.saveFoods(foods)) showToast("Não foi possível salvar. Libere espaço no navegador e exporte seus dados.", "⚠️");
+  if (db.saveFoods(foods)) {
+    const guide = document.getElementById("firstRunGuide");
+    if (foods.length && guide && !guide.classList.contains("hidden")) dismissFirstRunGuide();
+    return true;
+  }
+  foods = db.loadFoods();
+  showToast("Não foi possível salvar. O app manteve os dados anteriores; exporte uma cópia pelo Perfil.", "⚠️");
+  return false;
 }
 
-// Adiciona um alimento à despensa. Se já existir um item com o mesmo nome,
-// soma a quantidade em vez de criar um novo cartão (ex: Leite × 3).
-function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, separateBatch = false }) {
+// Agrupa itens apenas quando nome, validade e peso são compatíveis.
+function nextFoodId() {
+  let id = Date.now();
+  while (foods.some(food => Number(food.id) === id)) id += 1;
+  return id;
+}
+
+function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, expirySource, separateBatch = false }) {
   qty = Math.max(1, parseInt(qty, 10) || 1);
   storage = storage || "despensa";
 
   const normalized = normalizeText(name);
-  const existing = separateBatch ? null : foods.find(f => normalizeText(f.name) === normalized && (!weight || !f.weight || f.weight === weight));
+  const existing = separateBatch ? null : foods.find(f => normalizeText(f.name) === normalized && (f.expiry || "") === (expiry || "") && (!weight || !f.weight || f.weight === weight));
 
   if (existing) {
     existing.qty = (existing.qty || 1) + qty;
@@ -1365,16 +1439,18 @@ function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate,
     if (expiry && (!existing.expiry || expiry < existing.expiry)) {
       existing.expiry = expiry;
     }
+    if (expiry && (expirySource === "label-confirmed" || !existing.expirySource)) existing.expirySource = expirySource || "estimate";
     if (price) existing.price = Number(price);
     existing.storage = storage;
     if (weight) existing.weight = weight;
     if (packedDate) existing.packedDate = packedDate;
   } else {
     foods.unshift({
-      id: Date.now(),
+      id: nextFoodId(),
       name,
       icon: iconFor(name),
       expiry,
+      expirySource: expiry ? (expirySource || "estimate") : "unknown",
       qty,
       price: price ? Number(price) : null,
       storage,
@@ -1383,7 +1459,7 @@ function addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate,
     });
   }
 
-  saveDB();
+  return saveDB();
 }
 
 function saveFoodExpiry(id) {
@@ -1392,9 +1468,73 @@ function saveFoodExpiry(id) {
   if (!food || !input?.value) { showToast("Escolha a data impressa na embalagem.", "📅"); return; }
   food.expiry = input.value;
   food.expirySource = "label-confirmed";
-  saveDB();
+  if (!saveDB()) return;
   render();
   showToast("Validade salva. Confira a data no rótulo.", "✓");
+}
+
+let editingFoodId = null;
+function openFoodEditor(id) {
+  const food = foods.find(item => Number(item.id) === Number(id));
+  if (!food) return;
+  editingFoodId = Number(id);
+  document.getElementById("editFoodName").value = food.name || "";
+  document.getElementById("editFoodExpiry").value = food.expiry || "";
+  document.getElementById("editFoodQty").value = Math.max(1, Number(food.qty) || 1);
+  document.getElementById("editFoodStorage").value = food.storage || "despensa";
+  document.getElementById("editFoodWeight").value = food.weight || "";
+  document.getElementById("editFoodPackedDate").value = food.packedDate || "";
+  document.getElementById("foodEditorModal").classList.remove("hidden");
+  setTimeout(() => document.getElementById("editFoodName").focus(), 50);
+}
+
+function closeFoodEditor() {
+  document.getElementById("foodEditorModal").classList.add("hidden");
+  editingFoodId = null;
+}
+
+function saveFoodEdits() {
+  const food = foods.find(item => Number(item.id) === Number(editingFoodId));
+  if (!food) return;
+  const name = document.getElementById("editFoodName").value.trim();
+  const qty = Number(document.getElementById("editFoodQty").value);
+  if (!name) { showToast("Informe o nome do alimento.", "⚠️"); document.getElementById("editFoodName").focus(); return; }
+  if (!Number.isInteger(qty) || qty < 1) { showToast("A quantidade precisa ser pelo menos 1.", "⚠️"); document.getElementById("editFoodQty").focus(); return; }
+  const previous = { ...food };
+  food.name = name;
+  food.icon = iconFor(name);
+  food.expiry = document.getElementById("editFoodExpiry").value;
+  food.expirySource = food.expiry ? "user-reviewed" : "unknown";
+  food.qty = qty;
+  food.storage = document.getElementById("editFoodStorage").value;
+  food.weight = document.getElementById("editFoodWeight").value.trim();
+  food.packedDate = document.getElementById("editFoodPackedDate").value;
+  if (!saveDB()) { Object.assign(food, previous); return; }
+  closeFoodEditor();
+  render();
+  showToast("Alimento atualizado.", "✓");
+}
+
+function removeFoodFromEditor() {
+  const food = foods.find(item => Number(item.id) === Number(editingFoodId));
+  if (!food || !confirm(`Remover “${food.name}” da despensa?`)) return;
+  const previous = foods;
+  foods = foods.filter(item => Number(item.id) !== Number(editingFoodId));
+  if (!saveDB()) { foods = previous; return; }
+  closeFoodEditor();
+  render();
+  showToast("Alimento removido da despensa.", "✓");
+}
+
+function dismissFirstRunGuide() {
+  document.getElementById("firstRunGuide")?.classList.add("hidden");
+  try { localStorage.setItem("w2t-first-run-complete", "1"); } catch (error) { console.warn("Não foi possível salvar a preferência de primeiros passos.", error); }
+}
+
+function initFirstRunGuide() {
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("w2t-first-run-complete") === "1"; } catch (error) {}
+  if (!dismissed && foods.length === 0) document.getElementById("firstRunGuide")?.classList.remove("hidden");
 }
 
 function exportBackup() {
@@ -1445,7 +1585,10 @@ function loadShoppingList() {
 }
 
 function saveShoppingDB() {
-  db.saveShoppingList(shoppingList);
+  if (db.saveShoppingList(shoppingList)) return true;
+  shoppingList = db.loadShoppingList();
+  showToast("Não foi possível salvar a lista de compras. Os dados anteriores foram mantidos.", "⚠️");
+  return false;
 }
 
 /* ============================================================
@@ -1457,7 +1600,10 @@ function loadHistory() {
 }
 
 function saveHistoryDB() {
-  db.saveHistory(history);
+  if (db.saveHistory(history)) return true;
+  history = db.loadHistory();
+  showToast("Não foi possível atualizar o histórico neste aparelho.", "⚠️");
+  return false;
 }
 
 // Registra 1 unidade consumida, classificando pelo status da validade
@@ -1697,6 +1843,12 @@ function card(food) {
   const expiryText = food.expiry
     ? new Date(food.expiry + "T00:00:00").toLocaleDateString("pt-BR")
     : "Não informada";
+  const expirySourceText = !food.expiry
+    ? "Confira na embalagem"
+    : ["label-confirmed", "user-reviewed"].includes(food.expirySource)
+      ? "Conferida por você"
+      : "Estimativa — confira na embalagem";
+  const expirySourceClass = ["label-confirmed", "user-reviewed"].includes(food.expirySource) ? "text-emerald-700" : "text-amber-700";
   const qty = food.qty || 1;
   const priceText = food.price
     ? `<span class="text-xs text-slate-400 mt-1 block">${(food.price * qty).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>`
@@ -1730,11 +1882,13 @@ function card(food) {
         <div class="flex-1 min-w-0">
           <div class="flex justify-between gap-2 items-start">
             <h4 class="font-semibold text-slate-800 truncate">${esc(food.name)} ${qty > 1 ? `<span class="text-slate-400 font-normal">×${qty}</span>` : ""}</h4>
-            <span class="shrink-0 flex items-center gap-1.5 text-[11px] font-semibold ${statusText}">
-              <span class="w-1.5 h-1.5 rounded-full ${dot}"></span>${status}
-            </span>
+            <div class="shrink-0 flex items-center gap-2">
+              <span class="flex items-center gap-1.5 text-[11px] font-semibold ${statusText}"><span class="w-1.5 h-1.5 rounded-full ${dot}"></span>${status}</span>
+              <button onclick="openFoodEditor(${Number(food.id)})" aria-label="Editar ${esc(food.name)}" class="w-8 h-8 rounded-lg bg-slate-50 text-slate-600" title="Editar alimento">✎</button>
+            </div>
           </div>
-          <p class="text-xs text-slate-400 mt-0.5">Validade: ${expiryText}</p>
+          <p class="text-xs text-slate-500 mt-0.5">Validade: ${expiryText}</p>
+          <p class="text-[11px] ${expirySourceClass} mt-0.5">${expirySourceText}</p>
           ${expiryEditor}
           ${food.weight || food.packedDate ? `<p class="text-xs text-slate-500 mt-1">${food.weight ? `Peso: ${esc(food.weight)}` : ""}${food.packedDate ? `${food.weight ? " • " : ""}Embalado: ${new Date(food.packedDate + "T00:00:00").toLocaleDateString("pt-BR")}` : ""}</p>` : ""}
           ${priceText}
@@ -1915,7 +2069,7 @@ function renderSmartAssistant() {
 // sugerida pela IA de conservação — sem passar por nenhum formulário.
 function quickAddCommon(name, storage) {
   const expiry = estimateExpiryDate(name, storage);
-  addOrMergeFood({ name, expiry, qty: 1, storage });
+  if (!addOrMergeFood({ name, expiry, qty: 1, storage })) return;
 
   const normalized = normalizeText(name);
   const pendingMatch = shoppingList.find(x => !x.checked && normalizeText(x.name) === normalized);
@@ -2232,20 +2386,21 @@ function addAllBoughtToPantry() {
   const bought = shoppingList.filter(i => i.checked);
   if (!bought.length) return;
 
+  const addedIds = [];
   bought.forEach(item => {
-    addOrMergeFood({
+    if (addOrMergeFood({
       name: item.name,
       expiry: estimateExpiryDate(item.name, "despensa"),
       qty: item.qty || 1,
       storage: "despensa"
-    });
+    })) addedIds.push(item.id);
   });
 
-  shoppingList = shoppingList.filter(i => !i.checked);
+  shoppingList = shoppingList.filter(i => !addedIds.includes(i.id));
   saveShoppingDB();
   render();
   renderShopping();
-  showToast(`${bought.length} item(ns) enviado(s) para a despensa.`, "✓");
+  if (addedIds.length) showToast(`${addedIds.length} item(ns) enviado(s) para a despensa.`, "✓");
 }
 
 function toggleShoppingItem(id) {
@@ -2269,12 +2424,12 @@ function addToPantryFromShopping(id) {
   const item = shoppingList.find(x => x.id === id);
   if (!item) return;
 
-  addOrMergeFood({
+  if (!addOrMergeFood({
     name: item.name,
     expiry: estimateExpiryDate(item.name, "despensa"),
     qty: item.qty || 1,
     storage: "despensa"
-  });
+  })) return;
 
   shoppingList = shoppingList.filter(x => x.id !== id);
   saveShoppingDB();
@@ -2335,6 +2490,7 @@ function openManualAdd() {
   document.getElementById("manualFoodOpenedDate").value = todayISO();
   document.getElementById("manualFoodOpenedDateWrap").classList.add("hidden");
   document.getElementById("manualExpiryDate").value = plusDaysISO(7);
+  document.getElementById("manualExpiryConfirmed").checked = false;
 
   setTimeout(() => document.getElementById("manualFoodName").focus(), 100);
 }
@@ -2366,6 +2522,8 @@ function autoEstimateExpiry(prefix) {
   if (!name) return;
 
   dateEl.value = estimateExpiryDate(name, storageEl.value, openedEl.checked, openedDateEl.value);
+  const confirmedEl = document.getElementById(prefix === "manual" ? "manualExpiryConfirmed" : "foodExpiryConfirmed");
+  if (confirmedEl) confirmedEl.checked = false;
 }
 
 function saveManualFood() {
@@ -2385,7 +2543,8 @@ function saveManualFood() {
     return;
   }
 
-  addOrMergeFood({ name, expiry, qty, price, storage });
+  const expirySource = document.getElementById("manualExpiryConfirmed").checked ? "label-confirmed" : "estimate";
+  if (!addOrMergeFood({ name, expiry, qty, price, storage, expirySource })) return;
 
   // Se o alimento estava pendente na lista de compras, marca como resolvido.
   const normalized = normalizeText(name);
@@ -2552,14 +2711,33 @@ function hideProgress() {
   document.getElementById("analysisProgress").classList.add("hidden");
 }
 
-async function captureAndClassify() {
+async function analyzeSelectedImage(file) {
+  if (!file) return;
+  if (!file.type?.startsWith("image/")) { setStatus("Arquivo não é uma imagem", "Escolha uma foto JPG, PNG ou outro formato de imagem.", "⚠️"); return; }
+  if (file.size > 15 * 1024 * 1024) { setStatus("Foto muito grande", "Escolha uma imagem com até 15 MB para analisar neste aparelho.", "⚠️"); return; }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    await captureAndClassify(image);
+  } catch (error) {
+    console.error("Não foi possível abrir a foto selecionada:", error);
+    setStatus("Não consegui abrir essa foto", "Escolha outra imagem ou tire uma nova foto com boa iluminação.", "⚠️");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function captureAndClassify(imageSource = null) {
   if (analyzing || scannerRunning) return;
 
   if (!model) await loadAI();
 
   const video = document.getElementById("aiCamera");
-
-  if (!video.videoWidth || !video.videoHeight) {
+  const sourceWidth = imageSource?.naturalWidth || video.videoWidth;
+  const sourceHeight = imageSource?.naturalHeight || video.videoHeight;
+  if (!sourceWidth || !sourceHeight) {
     setStatus("Câmera ainda não está pronta", "Aguarde um segundo e tente novamente.", "⚠️");
     return;
   }
@@ -2572,17 +2750,26 @@ async function captureAndClassify() {
     setStatus(model ? "Analisando..." : "Lendo etiqueta...", model ? "Visão e leitura de texto estão analisando a imagem." : "A visão não carregou; vou tentar ler o texto da etiqueta em português.", model ? "🧠" : "🔤");
 
     const canvas = document.getElementById("aiCanvas");
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    const side = Math.min(vw, vh) * 0.72;
-    const sx = (vw - side) / 2;
-    const sy = (vh - side) / 2;
+    const vw = sourceWidth;
+    const vh = sourceHeight;
 
     canvas.width = 640;
     canvas.height = 640;
 
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, sx, sy, side, side, 0, 0, 640, 640);
+    if (imageSource) {
+      const scale = Math.min(640 / vw, 640 / vh);
+      const drawWidth = vw * scale;
+      const drawHeight = vh * scale;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, 640, 640);
+      ctx.drawImage(imageSource, (640 - drawWidth) / 2, (640 - drawHeight) / 2, drawWidth, drawHeight);
+    } else {
+      const side = Math.min(vw, vh) * 0.72;
+      const sx = (vw - side) / 2;
+      const sy = (vh - side) / 2;
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, 640, 640);
+    }
 
     const visualResults = [];
     if (model) {
@@ -2594,13 +2781,15 @@ async function captureAndClassify() {
     showProgress("Lendo etiqueta em português...", 45);
     const labelCanvas = document.getElementById("labelCanvas");
     // Mantém o rótulo legível mesmo em celulares com captura de baixa resolução.
-    const labelWidth = Math.min(1920, Math.max(1280, vw));
-    const labelHeight = Math.round(labelWidth * vh / vw);
+    const targetLongestSide = Math.min(1920, Math.max(1280, Math.max(vw, vh)));
+    const labelScale = targetLongestSide / Math.max(vw, vh);
+    const labelWidth = Math.round(vw * labelScale);
+    const labelHeight = Math.round(vh * labelScale);
     labelCanvas.width = labelWidth;
     labelCanvas.height = labelHeight;
     const labelCtx = labelCanvas.getContext("2d");
     labelCtx.filter = "grayscale(1) contrast(1.45)";
-    labelCtx.drawImage(video, 0, 0, labelWidth, labelHeight);
+    labelCtx.drawImage(imageSource || video, 0, 0, labelWidth, labelHeight);
     labelCtx.filter = "none";
     const ocrText = await runOCR(labelCanvas);
     const packageInfo = parseBrazilianLabel(ocrText);
@@ -3088,6 +3277,7 @@ function openManualForm(name) {
   document.getElementById("foodPrice").value = "";
   const matchingPrediction = name && lastPrediction?.name === name ? lastPrediction : null;
   document.getElementById("productForm").dataset.separateBatch = matchingPrediction ? "true" : "false";
+  document.getElementById("foodExpiryConfirmed").checked = false;
   document.getElementById("foodPackageWeight").value = matchingPrediction?.packageInfo?.weight || "";
   document.getElementById("foodPackedDate").value = matchingPrediction?.packageInfo?.packedDate || "";
   document.getElementById("foodStorage").value = "despensa";
@@ -3125,7 +3315,8 @@ function saveFood() {
   }
 
   const separateBatch = document.getElementById("productForm").dataset.separateBatch === "true";
-  addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, separateBatch });
+  const expirySource = document.getElementById("foodExpiryConfirmed").checked ? "label-confirmed" : "estimate";
+  if (!addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, expirySource, separateBatch })) return;
 
   // Se o alimento estava pendente na lista de compras, marca como resolvido.
   const normalized = normalizeText(name);
@@ -3312,7 +3503,7 @@ async function registerScannedProduct(product, code) {
   const weight = String(product?.quantity || "").trim();
   // O código de barras não contém a validade impressa desta embalagem.
   // Mantemos cada pacote separado e deixamos a data em branco até conferência.
-  addOrMergeFood({ name, expiry: "", qty: 1, storage, weight, separateBatch: true });
+  if (!addOrMergeFood({ name, expiry: "", qty: 1, storage, weight, separateBatch: true })) return false;
 
   const normalized = normalizeText(name);
   const pendingMatch = shoppingList.find(item => !item.checked && normalizeText(item.name) === normalized);
@@ -4863,6 +5054,7 @@ document.addEventListener("keydown", registerSecretKey);
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
+    closeFoodEditor();
     closeManualAdd();
     closeRecipeDetail();
     closeSnakeGame();
@@ -4881,6 +5073,7 @@ document.addEventListener("keydown", e => {
 initDarkMode();
 render();
 renderShopping();
+initFirstRunGuide();
 updateNotificationPreferenceUI();
 checkAndNotifyExpirations();
 setInterval(render, 60000);
