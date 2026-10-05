@@ -783,18 +783,27 @@
     </div>
 
     <div class="p-5">
-      <div class="flex justify-center gap-1.5 mb-5" id="recipeStepDots"></div>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-xs font-semibold text-slate-500">Seu progresso</p>
+        <p id="recipeProgressText" class="text-xs font-semibold text-green-700">0 de 0 etapas</p>
+      </div>
+      <div class="h-2 rounded-full bg-slate-100 overflow-hidden mb-5" role="progressbar" aria-label="Progresso do preparo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="recipeProgressTrack">
+        <div id="recipeProgressBar" class="h-full rounded-full bg-green-600 transition-all duration-300" style="width:0%"></div>
+      </div>
+      <div class="flex justify-center gap-1.5 mb-5" id="recipeStepDots" aria-hidden="true"></div>
 
       <div class="bg-slate-50 border border-slate-200 rounded-2xl p-8 flex flex-col items-center text-center min-h-[220px] justify-center">
         <div id="recipeStepIcon" class="text-5xl mb-4">🍳</div>
-        <p id="recipeStepText" class="text-base font-medium text-slate-700 leading-relaxed"></p>
+        <p id="recipeStepText" role="status" aria-live="polite" class="text-base font-medium text-slate-700 leading-relaxed"></p>
       </div>
 
-      <p id="recipeStepCounter" class="text-center text-xs text-slate-400 mt-3">Passo 1 de 4</p>
+      <p id="recipeStepCounter" aria-live="polite" class="text-center text-xs text-slate-400 mt-3">Passo 1 de 4</p>
+
+      <button onclick="toggleRecipeStepComplete()" id="recipeStepCompleteBtn" aria-pressed="false" class="w-full mt-4 border border-green-200 bg-green-50 text-green-800 py-3 rounded-xl font-semibold text-sm transition-colors">○ Marcar etapa como concluída</button>
 
       <div class="grid grid-cols-2 gap-3 mt-5">
         <button onclick="prevRecipeStep()" id="recipeStepPrevBtn" class="bg-slate-100 text-slate-600 py-3 rounded-xl font-semibold text-sm">‹ Anterior</button>
-        <button onclick="nextRecipeStep()" id="recipeStepNextBtn" class="bg-green-600 text-white py-3 rounded-xl font-semibold text-sm">Próximo ›</button>
+        <button onclick="nextRecipeStep()" id="recipeStepNextBtn" class="bg-green-600 text-white py-3 rounded-xl font-semibold text-sm">Próxima etapa ›</button>
       </div>
 
       <div class="mt-5 pt-5 border-t border-slate-200">
@@ -1103,6 +1112,7 @@ let lastPrediction = null;
 let analyzing = false;
 let currentRecipe = null;
 let currentStepIndex = 0;
+let completedRecipeSteps = new Set();
 let barcodeBusy = false;
 let barcodeLookupBusy = false;
 let nativeBarcodeDetector = null;
@@ -3880,6 +3890,7 @@ function openRecipeDetail(name) {
 
   currentRecipe = r;
   currentStepIndex = 0;
+  completedRecipeSteps = new Set();
 
   const diff = DIFFICULTY[r.level] || DIFFICULTY[2];
 
@@ -3904,6 +3915,7 @@ function openRecipeDetail(name) {
 function closeRecipeDetail() {
   document.getElementById("recipeDetailModal").classList.add("hidden");
   currentRecipe = null;
+  completedRecipeSteps = new Set();
 }
 
 function renderRecipeStep() {
@@ -3919,22 +3931,46 @@ function renderRecipeStep() {
   document.getElementById("recipeStepCounter").textContent =
     `Passo ${currentStepIndex + 1} de ${steps.length}`;
 
+  const completedCount = completedRecipeSteps.size;
+  const progressPercent = Math.round((completedCount / steps.length) * 100);
+  document.getElementById("recipeProgressText").textContent = `${completedCount} de ${steps.length} etapas`;
+  document.getElementById("recipeProgressBar").style.width = `${progressPercent}%`;
+  document.getElementById("recipeProgressTrack").setAttribute("aria-valuenow", String(progressPercent));
+
   const dots = steps.map((_, i) =>
-    `<span class="step-dot h-2 rounded-full ${i === currentStepIndex ? "bg-green-600 w-6" : "bg-slate-200 w-2"}"></span>`
+    `<span class="step-dot h-2 rounded-full ${completedRecipeSteps.has(i) ? "bg-green-500 w-2" : i === currentStepIndex ? "bg-green-600 w-6" : "bg-slate-200 w-2"}"></span>`
   ).join("");
 
   document.getElementById("recipeStepDots").innerHTML = dots;
 
   const prevBtn = document.getElementById("recipeStepPrevBtn");
   const nextBtn = document.getElementById("recipeStepNextBtn");
+  const completeBtn = document.getElementById("recipeStepCompleteBtn");
+  const isComplete = completedRecipeSteps.has(currentStepIndex);
+
+  completeBtn.setAttribute("aria-pressed", String(isComplete));
+  completeBtn.textContent = isComplete ? "✓ Etapa concluída — desfazer" : "○ Marcar etapa como concluída";
+  completeBtn.classList.toggle("bg-green-600", isComplete);
+  completeBtn.classList.toggle("text-white", isComplete);
+  completeBtn.classList.toggle("border-green-600", isComplete);
+  completeBtn.classList.toggle("bg-green-50", !isComplete);
+  completeBtn.classList.toggle("text-green-800", !isComplete);
+  completeBtn.classList.toggle("border-green-200", !isComplete);
 
   prevBtn.disabled = currentStepIndex === 0;
   prevBtn.classList.toggle("opacity-40", currentStepIndex === 0);
 
   nextBtn.textContent =
     currentStepIndex === steps.length - 1
-      ? "✓ Concluído"
-      : "Próximo ›";
+      ? "Finalizar preparo ✓"
+      : "Próxima etapa ›";
+}
+
+function toggleRecipeStepComplete() {
+  if (!currentRecipe) return;
+  if (completedRecipeSteps.has(currentStepIndex)) completedRecipeSteps.delete(currentStepIndex);
+  else completedRecipeSteps.add(currentStepIndex);
+  renderRecipeStep();
 }
 
 function nextRecipeStep() {
@@ -3943,9 +3979,18 @@ function nextRecipeStep() {
   const steps = currentRecipe.steps || [];
 
   if (currentStepIndex < steps.length - 1) {
+    if (!completedRecipeSteps.has(currentStepIndex)) {
+      showToast("Marque esta etapa como concluída para continuar.", "☑️");
+      return;
+    }
     currentStepIndex++;
     renderRecipeStep();
   } else {
+    if (!completedRecipeSteps.has(currentStepIndex)) {
+      showToast("Marque a última etapa como concluída para finalizar.", "☑️");
+      return;
+    }
+    showToast("Receita concluída! Bom apetite!", "🍽️");
     closeRecipeDetail();
   }
 }
