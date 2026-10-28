@@ -383,7 +383,11 @@
         <button data-recipe-category="Doces" onclick="setRecipeCategory('Doces')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Doces</button>
         <button data-recipe-category="Bebidas" onclick="setRecipeCategory('Bebidas')" class="recipe-category-chip shrink-0 rounded-full px-4 py-2 text-xs font-semibold">Bebidas</button>
       </div>
-      <div id="recipeList" class="space-y-3 mt-5"></div>
+      <div class="mt-1 mb-2">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Ingrediente principal</p>
+        <div id="recipeIngredientFilters" class="flex gap-2 overflow-x-auto py-1 -mx-1 px-1" aria-label="Filtrar por ingrediente principal"></div>
+      </div>
+      <div id="recipeList" class="space-y-3 mt-3"></div>
     </section>
 
     <!-- PROFILE -->
@@ -1130,6 +1134,7 @@ let nativeBarcodeDetector = null;
 let nativeBarcodeTimer = null;
 let nativeBarcodeDetecting = false;
 let activeRecipeCategory = "Todas";
+let activeRecipeIngredient = "Todas";
 let recipeVisibleLimit = 40;
 let deferredInstallPrompt = null;
 
@@ -3804,6 +3809,7 @@ function openRecipes() {
   const search = document.getElementById("recipeSearch");
   if (search) search.value = "";
   activeRecipeCategory = "Todas";
+  activeRecipeIngredient = "Todas";
   updateRecipeCategoryChips();
   showAllRecipes();
   showScreen("recipes");
@@ -3827,8 +3833,54 @@ function updateRecipeCategoryChips() {
   });
 }
 
+function recipeMainIngredient(recipe) {
+  const raw = String(recipe.needs?.[0] || "Outros ingredientes").trim();
+  const normalized = normalizeText(raw);
+  const aliases = {
+    "paes franceses": "Pão francês", "laranjas": "Laranja", "ovos": "Ovo",
+    "ovos de codorna": "Ovo de codorna", "limoes": "Limão", "bananas": "Banana",
+    "tomates": "Tomate", "macas": "Maçã", "pimentoes": "Pimentão",
+    "batatas": "Batata", "cenouras": "Cenoura", "morangos": "Morango",
+    "mangas": "Manga", "abacates": "Abacate", "peitos de frango": "Frango",
+    "file de frango": "Frango", "files de frango": "Frango"
+  };
+  if (aliases[normalized]) return aliases[normalized];
+  const cleaned = raw.replace(/^\s*(?:\d+(?:[.,]\d+)?\s*)?(?:cm|g|kg|ml|l|xicaras?|colheres?|fatias?|unidades?)\s+(?:de|do|da)?\s*/i, "").trim();
+  return cleaned || raw || "Outros ingredientes";
+}
+
+function recipeIngredientKey(ingredient) {
+  return normalizeText(ingredient || "Outros ingredientes").trim() || "outros ingredientes";
+}
+
+function updateRecipeIngredientFilters(categoryRecipes = recipes) {
+  const container = document.getElementById("recipeIngredientFilters");
+  if (!container) return;
+  const counts = new Map();
+  categoryRecipes.forEach(recipe => {
+    const ingredient = recipeMainIngredient(recipe);
+    const key = recipeIngredientKey(ingredient);
+    const current = counts.get(key) || { name: ingredient, count: 0 };
+    current.count += 1;
+    counts.set(key, current);
+  });
+  const ingredients = [...counts.entries()].sort((a, b) => b[1].count - a[1].count || a[1].name.localeCompare(b[1].name, "pt-BR"));
+  const chips = [`<button data-recipe-ingredient="Todas" aria-pressed="${activeRecipeIngredient === "Todas"}" onclick="setRecipeMainIngredient('Todas')" class="recipe-category-chip shrink-0 rounded-full px-3 py-2 text-xs font-semibold ${activeRecipeIngredient === "Todas" ? "active" : ""}">Todos (${categoryRecipes.length})</button>`];
+  ingredients.forEach(([key, item]) => {
+    chips.push(`<button data-recipe-ingredient="${esc(key)}" aria-pressed="${activeRecipeIngredient === key}" onclick="setRecipeMainIngredient('${attr(key)}')" class="recipe-category-chip shrink-0 rounded-full px-3 py-2 text-xs font-semibold ${activeRecipeIngredient === key ? "active" : ""}">${esc(item.name)} (${item.count})</button>`);
+  });
+  container.innerHTML = chips.join("");
+}
+
+function setRecipeMainIngredient(key) {
+  activeRecipeIngredient = key;
+  recipeVisibleLimit = 40;
+  showAllRecipes(document.getElementById("recipeSearch")?.value || "");
+}
+
 function setRecipeCategory(category) {
   activeRecipeCategory = category;
+  activeRecipeIngredient = "Todas";
   recipeVisibleLimit = 40;
   updateRecipeCategoryChips();
   showAllRecipes(document.getElementById("recipeSearch")?.value || "");
@@ -3837,15 +3889,25 @@ function setRecipeCategory(category) {
 function showAllRecipes(query = "") {
   const list = document.getElementById("recipeList");
   const normalizedQuery = normalizeText(query.trim());
-  const pool = recipes.filter(recipe => {
+  const categoryPool = recipes.filter(recipe => activeRecipeCategory === "Todas" || recipeCategory(recipe) === activeRecipeCategory);
+  updateRecipeIngredientFilters(categoryPool);
+  const pool = categoryPool.filter(recipe => {
     const matchesQuery = !normalizedQuery || normalizeText(recipe.name).includes(normalizedQuery) || recipe.needs.some(need => normalizeText(need).includes(normalizedQuery));
-    const matchesCategory = activeRecipeCategory === "Todas" || recipeCategory(recipe) === activeRecipeCategory;
-    return matchesQuery && matchesCategory;
-  });
+    const matchesIngredient = activeRecipeIngredient === "Todas" || recipeIngredientKey(recipeMainIngredient(recipe)) === activeRecipeIngredient;
+    return matchesQuery && matchesIngredient;
+  }).sort((a, b) => recipeIngredientKey(recipeMainIngredient(a)).localeCompare(recipeIngredientKey(recipeMainIngredient(b)), "pt-BR") || a.name.localeCompare(b.name, "pt-BR"));
   const visible = pool.slice(0, recipeVisibleLimit);
+  const groups = new Map();
+  visible.forEach(recipe => {
+    const mainIngredient = recipeMainIngredient(recipe);
+    const key = recipeIngredientKey(mainIngredient);
+    if (!groups.has(key)) groups.set(key, { name: mainIngredient, recipes: [] });
+    groups.get(key).recipes.push(recipe);
+  });
+  const groupedCards = [...groups.values()].map(group => `<section class="space-y-3" aria-label="Receitas com ${esc(group.name)} como ingrediente principal"><div class="flex items-center justify-between pt-3"><h3 class="font-bold text-slate-700">${esc(group.name)}</h3><span class="text-xs text-slate-500">${group.recipes.length} ${group.recipes.length === 1 ? "receita" : "receitas"}</span></div>${group.recipes.map(r => recipeCard({ ...r, missing: [], expiringBoost: 0, showMissing: false })).join("")}</section>`).join("");
   list.innerHTML = `
     <div class="flex items-center justify-between mb-2"><p class="text-xs font-semibold uppercase tracking-wide text-slate-400">${activeRecipeCategory === "Todas" ? "Cardápio completo" : esc(activeRecipeCategory)}</p><p class="text-xs text-slate-500">${pool.length} ${pool.length === 1 ? "receita" : "receitas"}</p></div>
-    ${pool.length ? visible.map(r => recipeCard({ ...r, missing: [], expiringBoost: 0, showMissing: false })).join("")}
+    ${pool.length ? groupedCards : ""}
     ${pool.length > visible.length ? `<button onclick="showMoreRecipes()" class="w-full mt-3 py-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700">Mostrar mais ${Math.min(40, pool.length - visible.length)} receitas</button>` : ""}
     ${!pool.length ? `
       <div class="text-center py-10"><div class="text-4xl">🔎</div><p class="font-semibold text-slate-700 mt-3">Nenhuma receita encontrada.</p><p class="text-sm text-slate-400 mt-1">Tente buscar pelo nome de um alimento.</p></div>
