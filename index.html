@@ -607,6 +607,7 @@
         <button id="retryCameraBtn" onclick="retryScannerCamera()" class="hidden flex-1 bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold">Tentar câmera novamente</button>
         <button id="retryAIButton" onclick="loadAI()" class="hidden flex-1 bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold">Tentar carregar IA</button>
       </div>
+      <button id="registerBarcodeProductBtn" onclick="registerProductForScannedBarcode()" class="hidden w-full mt-2 bg-white border border-amber-200 text-amber-900 rounded-xl px-3 py-2.5 text-sm font-semibold">Cadastrar produto e guardar este código neste aparelho</button>
     </div>
 
     <div id="analysisProgress" class="hidden px-5 pt-3">
@@ -1112,7 +1113,7 @@ const db = new StorageManager();
 ============================================================ */
 
 const OPEN_FOOD_FACTS_SEARCH = "https://world.openfoodfacts.org/cgi/search.pl";
-const OPEN_FOOD_FACTS_PRODUCT = "https://world.openfoodfacts.org/api/v2/product/";
+const OPEN_FOOD_FACTS_PRODUCT = "https://world.openfoodfacts.org/api/v3/product/";
 
 /* ============================================================
    ESTADO
@@ -1134,6 +1135,7 @@ let currentStepIndex = 0;
 let completedRecipeSteps = new Set();
 let barcodeBusy = false;
 let barcodeLookupBusy = false;
+let pendingBarcodeCode = "";
 let nativeBarcodeDetector = null;
 let nativeBarcodeTimer = null;
 let nativeBarcodeDetecting = false;
@@ -2715,6 +2717,7 @@ async function closeScanner() {
   document.getElementById("predictionBox").classList.add("hidden");
   document.getElementById("productForm").classList.add("hidden");
   hideProgress();
+  pendingBarcodeCode = "";
 }
 
 async function startCamera() {
@@ -2825,9 +2828,11 @@ async function loadAI() {
 function setStatus(title, desc, icon) {
   const cameraRetry = document.getElementById("retryCameraBtn");
   const aiRetry = document.getElementById("retryAIButton");
+  const barcodeRegister = document.getElementById("registerBarcodeProductBtn");
   const normalizedTitle = normalizeText(title);
   cameraRetry?.classList.toggle("hidden", !/(camera indisponivel|permissao de camera necessaria|nao foi possivel iniciar a camera|nao foi possivel iniciar o leitor)/.test(normalizedTitle));
   aiRetry?.classList.toggle("hidden", normalizedTitle !== "ia visual indisponivel");
+  barcodeRegister?.classList.toggle("hidden", !pendingBarcodeCode || !/(produto fora do catalogo|produto sem nome|sem conexao|nao foi possivel consultar|open food facts temporariamente indisponivel|muitas consultas|busca demorou demais)/.test(normalizedTitle));
   document.getElementById("aiStatus").innerHTML = `
     <div class="flex gap-3 items-center">
       <div class="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-base">${icon}</div>
@@ -2904,24 +2909,18 @@ async function captureAndClassify(imageSource = null) {
     canvas.height = 640;
 
     const ctx = canvas.getContext("2d");
-    if (imageSource) {
-      const scale = Math.min(640 / vw, 640 / vh);
-      const drawWidth = vw * scale;
-      const drawHeight = vh * scale;
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, 640, 640);
-      ctx.drawImage(imageSource, (640 - drawWidth) / 2, (640 - drawHeight) / 2, drawWidth, drawHeight);
-    } else {
-      const side = Math.min(vw, vh) * 0.72;
-      const sx = (vw - side) / 2;
-      const sy = (vh - side) / 2;
-      ctx.drawImage(video, sx, sy, side, side, 0, 0, 640, 640);
-    }
+    // A visão classifica um recorte central preenchendo o quadro: fotos verticais
+    // da galeria não ficam reduzidas com grandes faixas brancas ao redor.
+    const source = imageSource || video;
+    const side = Math.min(vw, vh) * 0.72;
+    const sx = (vw - side) / 2;
+    const sy = (vh - side) / 2;
+    ctx.drawImage(source, sx, sy, side, side, 0, 0, 640, 640);
 
     const visualResults = [];
     if (model) {
       showProgress("IA visual identificando alimentos...", 25);
-      const predictions = await model.classify(canvas, 10);
+      const predictions = await model.classify(canvas, 20);
       visualResults.push(...processVisualPredictions(predictions));
     }
 
@@ -2954,7 +2953,7 @@ async function captureAndClassify(imageSource = null) {
       showPrediction(finalResult);
       setStatus(packageInfo.name ? "Etiqueta lida" : "Sugestão identificada", "Confira nome, peso e datas antes de salvar.", "✓");
     } else {
-      setStatus("Não consegui identificar", "Aproxime e mostre a frente da embalagem, com o nome em foco. Tente outra foto; o cadastro manual continua como opção.", "⚠️");
+      setStatus("Não consegui identificar", "Centralize o alimento, use boa iluminação e tente outro ângulo. Para produtos embalados, mostre o nome do rótulo. Você também pode escolher outra foto ou cadastrar manualmente.", "⚠️");
     }
   } catch (e) {
     console.error("Erro na análise:", e);
@@ -2977,7 +2976,7 @@ function processVisualPredictions(predictions) {
   predictions.forEach((prediction, index) => {
     const name = normalizeLabel(prediction.className);
     const probability = Number(prediction.probability) || 0;
-    if (!name || probability < 0.035) return;
+    if (!name || probability < 0.01) return;
 
     const existing = byName.get(name);
     if (existing) existing.probability += probability;
@@ -3242,7 +3241,7 @@ function combineResults(visualResults, ocrText, searchResults, packageInfo = {})
   }
 
   visualResults.slice(0, 5).forEach(result => {
-    if (result.probability >= 0.035) {
+    if (result.probability >= 0.01) {
       // A confiança do MobileNet costuma ser baixa em fotos reais de celular;
       // não descarte automaticamente a classe de alimento mais provável.
       const rankPenalty = Math.max(0, (result.rank || 0) - 1) * 2;
@@ -3472,6 +3471,10 @@ function saveFood() {
   const separateBatch = document.getElementById("productForm").dataset.separateBatch === "true";
   const expirySource = expiry ? (document.getElementById("foodExpiryConfirmed").checked ? "label-confirmed" : "unconfirmed") : "unknown";
   if (!addOrMergeFood({ name, expiry, qty, price, storage, weight, packedDate, expirySource, unit, category: catalogItem?.category, separateBatch })) return;
+  if (pendingBarcodeCode) {
+    rememberBarcodeProduct(pendingBarcodeCode, { name, quantity: weight, categories: catalogItem?.category || "" });
+    pendingBarcodeCode = "";
+  }
 
   // Se o alimento estava pendente na lista de compras, marca como resolvido.
   const normalized = normalizeText(name);
@@ -3634,6 +3637,47 @@ async function barcodeFound(code) {
   await lookupBarcode(code);
 }
 
+const LOCAL_BARCODE_ALIAS_KEY = "w2t-local-barcode-products-v1";
+
+function readLocalBarcodeProducts() {
+  try {
+    const value = JSON.parse(localStorage.getItem(LOCAL_BARCODE_ALIAS_KEY) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch (error) {
+    console.warn("Não foi possível ler os códigos salvos neste aparelho.", error);
+    return {};
+  }
+}
+
+function rememberBarcodeProduct(code, product) {
+  const normalizedCode = String(code || "").replace(/\D/g, "");
+  const name = String(product?.name || product?.product_name_pt || product?.product_name || "").trim();
+  if (!/^\d{8,14}$/.test(normalizedCode) || !name) return false;
+  const products = readLocalBarcodeProducts();
+  products[normalizedCode] = {
+    name: name.slice(0, 100),
+    quantity: String(product?.quantity || "").slice(0, 40),
+    categories: String(product?.categories || "").slice(0, 100),
+    savedAt: Date.now()
+  };
+  const entries = Object.entries(products).sort((a, b) => (b[1]?.savedAt || 0) - (a[1]?.savedAt || 0)).slice(0, 250);
+  try {
+    localStorage.setItem(LOCAL_BARCODE_ALIAS_KEY, JSON.stringify(Object.fromEntries(entries)));
+    return true;
+  } catch (error) {
+    console.warn("Não foi possível guardar o código neste aparelho.", error);
+    return false;
+  }
+}
+
+function registerProductForScannedBarcode() {
+  if (!pendingBarcodeCode) return;
+  document.getElementById("registerBarcodeProductBtn")?.classList.add("hidden");
+  openManualForm("");
+  document.getElementById("foodName")?.focus();
+  showToast("Digite o nome do produto; o código ficará salvo somente neste aparelho.", "ℹ️");
+}
+
 function toggleManualBarcodeEntry() {
   const entry = document.getElementById("manualBarcodeEntry");
   entry?.classList.toggle("hidden");
@@ -3660,6 +3704,8 @@ async function registerScannedProduct(product, code) {
   // O código de barras não contém a validade impressa desta embalagem.
   // Mantemos cada pacote separado e deixamos a data em branco até conferência.
   if (!addOrMergeFood({ name, expiry: "", qty: 1, storage, weight, unit: catalogUnit(catalogItem), category: catalogItem?.category, separateBatch: true })) return false;
+  rememberBarcodeProduct(code, { name, quantity: weight, categories: product?.categories || catalogItem?.category || "" });
+  pendingBarcodeCode = "";
 
   const normalized = normalizeText(name);
   const pendingMatch = shoppingList.find(item => !item.checked && normalizeText(item.name) === normalized);
@@ -3691,34 +3737,58 @@ async function lookupBarcode(rawCode) {
   }
 
   barcodeLookupBusy = true;
+  pendingBarcodeCode = code;
   setStatus("Código reconhecido", "Buscando o nome do produto para cadastrar automaticamente...", "🔎");
 
   try {
+    const localProduct = readLocalBarcodeProducts()[code];
+    if (localProduct?.name) {
+      setStatus("Produto salvo neste aparelho", `Encontrei “${localProduct.name}” no cadastro local.`, "✓");
+      await registerScannedProduct({ product_name_pt: localProduct.name, quantity: localProduct.quantity, categories: localProduct.categories }, code);
+      return;
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     let r;
     try {
       r = await fetch(
-        OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json?fields=code,product_name_pt_br,product_name_pt,product_name,product_name_en,brands,quantity,categories,categories_tags",
+        OPEN_FOOD_FACTS_PRODUCT + encodeURIComponent(code) + ".json?fields=code,product_name,product_name_pt,product_name_pt_br,product_name_en,brands,quantity,categories,categories_tags&cc=br&lc=pt&tags_lc=pt",
         { signal: controller.signal, headers: { Accept: "application/json" } }
       );
     } finally {
       clearTimeout(timeout);
     }
-    if (!r.ok) throw new Error(`Open Food Facts respondeu com HTTP ${r.status}`);
+    if (!r.ok) {
+      const error = new Error(`Open Food Facts respondeu com HTTP ${r.status}`);
+      error.httpStatus = r.status;
+      throw error;
+    }
 
     const data = await r.json();
 
-    if (data.status === 1 && data.product) {
+    if (data.product && (data.status === 1 || String(data.status || "").startsWith("success"))) {
       const p = data.product;
       if (await registerScannedProduct(p, code)) return;
       setStatus("Código reconhecido, produto sem nome", "Não há um nome cadastrado para este código no banco de produtos. Tente novamente ou use o cadastro manual.", "⚠️");
     } else {
-      setStatus("Código reconhecido, produto fora do catálogo", "O código foi lido, mas não há nome associado a ele no banco online. Você pode tentar novamente ou usar o cadastro manual.", "⚠️");
+      setStatus("Código reconhecido, produto fora do catálogo", "O código foi lido, mas não há nome no banco online. Cadastre o nome e ele ficará disponível neste aparelho nas próximas leituras.", "⚠️");
     }
   } catch (e) {
     console.error(e);
-    setStatus(e?.name === "AbortError" ? "Busca demorou demais" : "Banco temporariamente indisponível", "O código foi lido. Confira a conexão e tente de novo. O cadastro manual continua disponível.", "⚠️");
+    if (e?.name === "AbortError") {
+      setStatus("Busca demorou demais", "O banco não respondeu em 12 segundos. Tente novamente ou cadastre o nome para guardar este código neste aparelho.", "⚠️");
+    } else if (e?.httpStatus === 429) {
+      setStatus("Muitas consultas seguidas", "O banco limitou temporariamente as consultas. Aguarde um pouco ou cadastre o nome para guardar este código neste aparelho.", "⚠️");
+    } else if (e?.httpStatus >= 500) {
+      setStatus("Open Food Facts temporariamente indisponível", "O serviço respondeu com erro. Tente novamente mais tarde ou cadastre o nome para guardar este código neste aparelho.", "⚠️");
+    } else if (e?.httpStatus === 404) {
+      setStatus("Produto fora do catálogo", "O código não foi encontrado no banco online. Você pode cadastrar o nome e guardar o código neste aparelho.", "⚠️");
+    } else if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setStatus("Sem conexão com a internet", "A consulta online precisa de internet. Você também pode cadastrar o nome e guardar o código neste aparelho.", "⚠️");
+    } else {
+      setStatus("Não foi possível consultar o banco", "A conexão com o serviço falhou ou foi bloqueada pelo navegador. Tente outra rede ou cadastre o nome para guardar este código neste aparelho.", "⚠️");
+    }
   } finally {
     barcodeLookupBusy = false;
   }
