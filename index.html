@@ -594,7 +594,7 @@
     </div>
 
     <div class="px-5 pt-4">
-      <div id="aiStatus" class="bg-slate-50 rounded-2xl p-4 text-sm">
+      <div id="aiStatus" class="bg-slate-50 rounded-2xl p-4 text-sm" role="status" aria-live="polite" aria-atomic="true">
         <div class="flex gap-3 items-center">
           <div class="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-base">⏳</div>
           <div>
@@ -602,6 +602,10 @@
             <p class="text-xs text-slate-400 mt-0.5">Aguarde alguns segundos.</p>
           </div>
         </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button id="retryCameraBtn" onclick="retryScannerCamera()" class="hidden flex-1 bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold">Tentar câmera novamente</button>
+        <button id="retryAIButton" onclick="loadAI()" class="hidden flex-1 bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2.5 text-sm font-semibold">Tentar carregar IA</button>
       </div>
     </div>
 
@@ -2819,6 +2823,11 @@ async function loadAI() {
 }
 
 function setStatus(title, desc, icon) {
+  const cameraRetry = document.getElementById("retryCameraBtn");
+  const aiRetry = document.getElementById("retryAIButton");
+  const normalizedTitle = normalizeText(title);
+  cameraRetry?.classList.toggle("hidden", !/(camera indisponivel|permissao de camera necessaria|nao foi possivel iniciar a camera|nao foi possivel iniciar o leitor)/.test(normalizedTitle));
+  aiRetry?.classList.toggle("hidden", normalizedTitle !== "ia visual indisponivel");
   document.getElementById("aiStatus").innerHTML = `
     <div class="flex gap-3 items-center">
       <div class="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-base">${icon}</div>
@@ -2828,6 +2837,15 @@ function setStatus(title, desc, icon) {
       </div>
     </div>
   `;
+}
+
+async function retryScannerCamera() {
+  await stopBarcodeScanner();
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  await startCamera();
 }
 
 function showProgress(text, percent) {
