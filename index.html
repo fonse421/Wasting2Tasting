@@ -352,6 +352,45 @@
     html.dark .tour-btn.ghost { color: #a6b0a9; }
     /* Botão da câmera no menu: o anel acompanha o fundo escuro */
     html.dark nav .border-\[\#F7FAF8\] { border-color: #0f1a14; }
+
+    /* ===== Scanner, estatísticas, receita e resgate ===== */
+    /* Moldura da câmera só nos cantos: deixa o alimento à vista e guia o enquadramento */
+    #cameraOverlay > .inset-\[16\%\] {
+      border: 0; border-radius: 18px;
+      background:
+        linear-gradient(#fff,#fff) top left / 28px 3px no-repeat,
+        linear-gradient(#fff,#fff) top left / 3px 28px no-repeat,
+        linear-gradient(#fff,#fff) top right / 28px 3px no-repeat,
+        linear-gradient(#fff,#fff) top right / 3px 28px no-repeat,
+        linear-gradient(#fff,#fff) bottom left / 28px 3px no-repeat,
+        linear-gradient(#fff,#fff) bottom left / 3px 28px no-repeat,
+        linear-gradient(#fff,#fff) bottom right / 28px 3px no-repeat,
+        linear-gradient(#fff,#fff) bottom right / 3px 28px no-repeat;
+    }
+    .scan-line { box-shadow: 0 0 14px rgba(74,222,128,.85); border-radius: 2px; }
+    .scan-note { font-size: .85rem; line-height: 1.5; color: #52625a; margin-top: .6rem; padding-left: .75rem; border-left: 3px solid var(--line); }
+    html.dark .scan-note { color: #a6b0a9; border-left-color: #33463b; }
+
+    .defs { margin: .5rem 0 0; }
+    .defs > div { padding: .6rem 0; border-top: 1px solid var(--line); }
+    .defs > div:first-child { border-top: 0; }
+    .defs dt { display: flex; align-items: center; gap: .5rem; font-weight: 650; font-size: .88rem; }
+    .defs dd { margin: .15rem 0 0 1.1rem; font-size: .85rem; line-height: 1.45; color: #52625a; }
+    .defs .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .defs .dot.ok { background: var(--leaf); }
+    .defs .dot.soon { background: var(--amber); }
+    .defs .dot.expired { background: var(--tomato); }
+    html.dark .defs > div { border-top-color: #33463b; }
+    html.dark .defs dd { color: #a6b0a9; }
+
+    /* Etapa de receita entra deslizando; "tem tudo" fica verde */
+    .step-swap { animation: stepIn .32s var(--ease-out) both; }
+    @keyframes stepIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+    #recipeDetailMissing.have-all { color: var(--leaf); }
+    html.dark #recipeDetailMissing.have-all { color: #6bdc93 !important; }
+    #recipeProgressBar { transition: width .45s var(--ease-out); }
+    html.dark .text-green-800, html.dark .text-green-900 { color: #8ce6ab !important; }
+    #rescueModal .screen-hint { font-size: .85rem; }
   </style>
 </head>
 
@@ -609,6 +648,15 @@
         </button>
       </div>
 
+      <button onclick="startTour()" class="w-full bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg shrink-0">💡</div>
+        <div class="text-left flex-1">
+          <p class="font-semibold text-sm">Como usar o app</p>
+          <p class="text-[11px] text-slate-400">Rever o passo a passo, em menos de um minuto</p>
+        </div>
+        <span class="text-xl text-slate-300">›</span>
+      </button>
+
       <button onclick="showScreen('stats')" class="w-full bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3 mb-3">
         <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-lg shrink-0">📈</div>
         <div class="text-left flex-1">
@@ -681,8 +729,8 @@
     <!-- ESTATÍSTICAS -->
     <section id="stats" class="screen pt-5">
       <button onclick="showScreen('profile')" class="text-sm font-semibold text-slate-500 mb-3">‹ Voltar ao perfil</button>
-      <p class="text-sm text-slate-400">Seu impacto</p>
-      <h2 class="text-2xl font-extrabold mt-1">Painel de Impacto</h2>
+      <h2 class="text-2xl font-extrabold">Painel de Impacto</h2>
+      <p id="statsHint" class="screen-hint">Quanto você aproveitou e quanto deixou estragar.</p>
 
       <div class="grid grid-cols-2 gap-3 mt-5">
         <div class="bg-white rounded-2xl p-4 border border-slate-200">
@@ -704,12 +752,13 @@
       </div>
 
       <div class="bg-white rounded-2xl border border-slate-200 p-5 mt-5">
-        <p class="text-sm text-slate-500 leading-relaxed">
-          "Consumidos" e "salvos perto do vencimento" contam cada unidade que você retirou da
-          despensa antes de vencer. "Desperdiçados" conta unidades retiradas depois de já
-          vencidas. A economia estimada soma o preço (quando informado) dos itens que você
-          não deixou vencer.
-        </p>
+        <p class="font-bold text-sm text-slate-800">O que cada número significa</p>
+        <dl class="defs">
+          <div><dt><i class="dot ok"></i>Consumidos</dt><dd>Unidades que você retirou da despensa antes de vencer.</dd></div>
+          <div><dt><i class="dot soon"></i>Salvos perto do vencimento</dt><dd>Unidades usadas quando estavam perto de vencer.</dd></div>
+          <div><dt><i class="dot expired"></i>Desperdiçados</dt><dd>Unidades retiradas depois de já vencidas.</dd></div>
+          <div><dt><i class="dot ok"></i>Economia estimada</dt><dd>Soma do preço, quando informado, dos itens que você não deixou vencer.</dd></div>
+        </dl>
       </div>
     </section>
   </main>
@@ -815,6 +864,14 @@
       </div>
       <button onclick="document.getElementById('foodPhotoInput').click()" class="w-full mt-2 bg-white border border-slate-200 text-slate-700 py-2.5 rounded-xl font-semibold text-sm">🖼️ Escolher foto da galeria</button>
       <input id="foodPhotoInput" type="file" accept="image/*" class="hidden" onchange="analyzeSelectedImage(this.files?.[0]); this.value=''">
+      <details class="legend" style="margin-top:.6rem">
+        <summary>O que cada opção faz</summary>
+        <div class="legend-body">
+          <p><span><b>Código de barras:</b> aponte a câmera para o código da embalagem e o app busca o produto.</span></p>
+          <p><span><b>Foto + etiqueta:</b> a IA sugere o nome do alimento e tenta ler a validade da etiqueta.</span></p>
+          <p><span><b>Galeria:</b> use uma foto que você já tirou.</span></p>
+        </div>
+      </details>
       <button onclick="toggleManualBarcodeEntry()" class="text-xs font-semibold text-slate-500 mt-3 py-2">Digitar código manualmente</button>
       <div id="manualBarcodeEntry" class="hidden flex gap-2 mt-1">
         <input id="barcodeManualInput" type="text" inputmode="numeric" autocomplete="off" maxlength="18"
@@ -823,7 +880,7 @@
                onkeydown="if(event.key==='Enter') lookupBarcode(this.value)">
         <button onclick="lookupBarcode(document.getElementById('barcodeManualInput').value)" class="shrink-0 bg-white border border-slate-200 text-slate-700 px-3 rounded-xl text-sm font-semibold">Buscar</button>
       </div>
-      <p class="text-sm text-slate-500 mt-2 leading-relaxed">Para carnes, fotografe a etiqueta. A leitura pode errar corte, peso ou datas; confira antes de salvar. A validade pode ficar em branco até você consultar o rótulo.</p>
+      <p class="scan-note">Para carnes, fotografe a etiqueta. A leitura pode errar corte, peso ou datas; confira antes de salvar. A validade pode ficar em branco até você consultar o rótulo.</p>
 
       <button onclick="openManualForm()" class="w-full mt-3 bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-semibold text-sm">Cadastrar manualmente</button>
 
@@ -1146,7 +1203,8 @@
         </div>
       </div>
 
-      <p id="rescueHeadline" class="text-sm font-semibold text-slate-800 mb-4"></p>
+      <p id="rescueHeadline" class="text-sm font-semibold text-slate-800"></p>
+      <p class="screen-hint" style="margin:.25rem 0 1rem">Cozinhe nesta ordem para não perder nada. As receitas abaixo usam o que está perto de vencer.</p>
 
       <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Plano dos próximos dias</p>
       <div id="rescuePlan" class="space-y-2 mb-5"></div>
@@ -1307,6 +1365,7 @@ let lastPrediction = null;
 let analyzing = false;
 let currentRecipe = null;
 let currentStepIndex = 0;
+let lastRenderedStepKey = "";
 let completedRecipeSteps = new Set();
 let barcodeBusy = false;
 let barcodeLookupBusy = false;
@@ -2522,7 +2581,7 @@ function renderRescueRecipes(items) {
             <p class="font-semibold text-sm text-slate-800">${esc(r.name)}</p>
             <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${diff.cls}">${diff.label}</span>
           </div>
-          <p class="text-[11px] text-orange-600 mt-0.5">Usa ${r.rescueMatches} ingrediente(s) que estão vencendo</p>
+          <p class="text-[11px] text-orange-600 mt-0.5">${r.rescueMatches === 1 ? "Usa 1 ingrediente que está vencendo" : `Usa ${r.rescueMatches} ingredientes que estão vencendo`}</p>
         </div>
         <span class="text-lg text-slate-300">›</span>
       </div>
@@ -2939,6 +2998,11 @@ function renderStats() {
   document.getElementById("statSalvo").textContent = salvo;
   document.getElementById("statEconomia").textContent =
     economia.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  ["statConsumido", "statDesperdicado", "statSalvo"].forEach(id => countUp(document.getElementById(id)));
+  // Sem nenhum registro ainda, a tela explica de onde os números vêm.
+  document.getElementById("statsHint").textContent = consumido + desperdicado + salvo === 0
+    ? "Seus números aparecem aqui conforme você usa e descarta alimentos na despensa."
+    : "Quanto você aproveitou e quanto deixou estragar.";
 }
 
 /* ============================================================
@@ -4518,10 +4582,13 @@ function openRecipeDetail(name) {
   const available = foods.map(f => f.name.toLowerCase());
   const missing = r.needs.filter(n => !matchIngredient(available, n));
 
-  document.getElementById("recipeDetailMissing").textContent =
+  const missingEl = document.getElementById("recipeDetailMissing");
+  missingEl.textContent =
     missing.length
       ? `Falta: ${missing.join(", ")}`
       : "Você tem tudo para essa receita ✓";
+  // Laranja avisa o que falta; verde confirma que está tudo em casa.
+  missingEl.classList.toggle("have-all", missing.length === 0);
 
   document.getElementById("recipeDetailMissingBtn").classList.toggle("hidden", missing.length === 0);
 
@@ -4544,6 +4611,17 @@ function renderRecipeStep() {
 
   document.getElementById("recipeStepIcon").textContent = step.icon;
   document.getElementById("recipeStepText").textContent = step.text;
+  // A etapa nova entra deslizando; marcar "concluída" não repete o movimento.
+  const stepKey = `${currentRecipe.name}:${currentStepIndex}`;
+  if (stepKey !== lastRenderedStepKey) {
+    lastRenderedStepKey = stepKey;
+    ["recipeStepIcon", "recipeStepText"].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("step-swap");
+      void el.offsetWidth;
+      el.classList.add("step-swap");
+    });
+  }
   document.getElementById("recipeStepCounter").textContent =
     `Passo ${currentStepIndex + 1} de ${steps.length}`;
 
@@ -4636,18 +4714,21 @@ function getExpiryWarnings() {
 }
 
 function expiryWarningRow(f, kind) {
-  const expiryText = f.expiry
+  const dateText = f.expiry
     ? new Date(f.expiry + "T00:00:00").toLocaleDateString("pt-BR")
-    : "Sem validade";
+    : "";
+  // "Vence amanhã" diz mais do que só a data; a data continua ao lado.
+  const when = f.expiry ? freshnessLabel(daysUntil(f.expiry)) : "Sem validade";
 
   const dot = kind === "expired" ? "bg-red-500" : "bg-orange-500";
+  const whenClass = kind === "expired" ? "text-red-600" : "text-orange-600";
 
   return `
     <div class="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
       <span class="w-2 h-2 rounded-full shrink-0 ${dot}"></span>
       <div class="flex-1 min-w-0">
         <p class="font-semibold text-sm text-slate-800 truncate">${esc(f.name)}</p>
-        <p class="text-xs text-slate-400">Validade: ${expiryText}</p>
+        <p class="text-xs text-slate-400"><span class="font-semibold ${whenClass}">${when}</span>${dateText ? ` (${dateText})` : ""}</p>
       </div>
     </div>
   `;

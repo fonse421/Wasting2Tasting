@@ -6,7 +6,7 @@
    isso aqui só cuida dos arquivos do app em si.
 ============================================================ */
 
-const CACHE_VERSION = "wasting2tasting-v10";
+const CACHE_VERSION = "wasting2tasting-v11";
 
 // Arquivos essenciais do app (o "esqueleto")
 const APP_SHELL = [
