@@ -7,4 +7,5 @@ initFirstRunGuide();
 updateBackupStatus();
 updateNotificationPreferenceUI();
 checkAndNotifyExpirations();
+initWelcomeIntro();
 setInterval(render, 60000);

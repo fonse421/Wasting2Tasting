@@ -4,7 +4,7 @@
    Dados pessoais continuam armazenados localmente no navegador.
 ============================================================ */
 
-const CACHE_VERSION = "wasting2tasting-v10";
+const CACHE_VERSION = "wasting2tasting-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const APP_SHELL = [
   "./scanner.js",
   "./recipes.js",
   "./recipes-ui.js",
+  "./intro.js",
   "./boot.js",
   "./manifest.json"
 ];
