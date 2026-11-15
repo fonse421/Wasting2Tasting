@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#DDF5E6">
+  <meta name="theme-color" content="#f5faed">
+  <script>
+    /* A abertura aparece uma vez por visita; ao recarregar na mesma sessão, vai direto ao app. */
+    try { if (sessionStorage.getItem("w2t-splash")) document.documentElement.classList.add("no-splash"); } catch (e) {}
+  </script>
+  <link rel="preload" href="brand/logo-mark.webp" as="image" type="image/webp">
   <meta name="description" content="Wasting2Tasting — despensa inteligente com IA, OCR, código de barras e lista de compras">
   <title>Wasting2Tasting</title>
 
@@ -17,17 +22,72 @@
   <meta name="twitter:card" content="summary">
 
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" href="brand/icon-any-192.png">
+  <link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Wasting2Tasting">
   <meta name="mobile-web-app-capable" content="yes">
 
+  <!-- Tela de abertura do iPhone (iOS monta a sua própria, a partir destas imagens) -->
+  <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1320x2868.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1290x2796.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1284x2778.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1206x2622.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1179x2556.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1170x2532.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="brand/ios/splash-1125x2436.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="brand/ios/splash-828x1792.jpg">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="brand/ios/splash-750x1334.jpg">
+
   <link rel="preload" href="fonts/Figtree-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 
   <style>
+    /* ===== ABERTURA (splash) ===== */
+    #splash {
+      position: fixed; inset: 0; z-index: 100; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #f7fbef 0%, #f5faed 50%, #f1f7e9 100%);
+      padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+      transition: opacity .34s ease, transform .34s cubic-bezier(.2,.8,.2,1);
+    }
+    #splash.leaving { opacity: 0; transform: scale(1.025); pointer-events: none; }
+    html.no-splash #splash { display: none; }
+    .splash-center { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; transform: translateY(-3vh); }
+    .splash-glow {
+      position: absolute; left: 50%; top: 42%; width: 120vw; max-width: 620px; aspect-ratio: 1; margin: -310px 0 0 -310px;
+      background: radial-gradient(circle, rgba(255,255,255,.6) 0%, rgba(255,255,255,0) 62%);
+      animation: splashBreath 2.6s ease-in-out infinite alternate; pointer-events: none;
+    }
+    .splash-mark {
+      position: relative; width: min(64vw, 270px); height: auto; aspect-ratio: 1;
+      animation: splashMark .9s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .splash-name {
+      position: relative; margin: .5rem 0 0; font-family: Figtree, system-ui, sans-serif;
+      font-size: 1.8rem; font-weight: 760; letter-spacing: -.03em; color: #14412a;
+      animation: splashRise .65s cubic-bezier(.2,.8,.2,1) .35s both;
+    }
+    .splash-tag {
+      position: relative; margin: .35rem 0 0; font-family: Figtree, system-ui, sans-serif;
+      font-size: 1rem; font-weight: 500; color: #4d6355;
+      animation: splashRise .65s cubic-bezier(.2,.8,.2,1) .5s both;
+    }
+    .splash-load {
+      position: absolute; left: 50%; width: 132px; height: 5px; margin-left: -66px;
+      bottom: calc(env(safe-area-inset-bottom) + 12vh); border-radius: 99px;
+      background: rgba(20,65,42,.1); overflow: hidden; animation: splashRise .5s ease .6s both;
+    }
+    .splash-load > i {
+      display: block; height: 100%; border-radius: inherit; transform-origin: left center;
+      background: linear-gradient(90deg, #6cc07a, #17804b); animation: splashLoad 1.5s cubic-bezier(.4,.1,.2,1) .3s both;
+    }
+    @keyframes splashMark { from { opacity: 0; transform: scale(.88) translateY(12px); filter: blur(6px); } to { opacity: 1; transform: none; filter: blur(0); } }
+    @keyframes splashRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes splashLoad { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes splashBreath { from { opacity: .6; transform: scale(.96); } to { opacity: 1; transform: scale(1.04); } }
+
     * { -webkit-tap-highlight-color: transparent; }
     html { scroll-behavior: smooth; }
     body {
@@ -395,6 +455,16 @@
 </head>
 
 <body class="bg-[#F7FAF8] text-slate-800">
+<!-- ABERTURA: aparece desde o primeiro quadro e some quando o app está pronto -->
+<div id="splash" aria-hidden="true">
+  <div class="splash-glow"></div>
+  <div class="splash-center">
+    <img class="splash-mark" src="brand/logo-mark.webp" alt="" width="560" height="560" decoding="async">
+    <p class="splash-name">Wasting2Tasting</p>
+    <p class="splash-tag">Aproveite cada alimento</p>
+  </div>
+  <div class="splash-load"><i></i></div>
+</div>
 <datalist id="foodCatalogOptions"></datalist>
 <div class="max-w-md mx-auto min-h-screen relative">
 
@@ -2877,7 +2947,10 @@ function countUp(el) {
 function animateHomeCounters() {
   ["totalItems", "expiringItems", "expiredItems"].forEach(id => countUp(document.getElementById(id)));
 }
-window.addEventListener("load", () => setTimeout(animateHomeCounters, 150));
+// Quando a abertura sai, a tela inicial "acontece" de verdade: números sobem e barras enchem.
+window.addEventListener("w2t:splash-done", () => {
+  if (document.querySelector(".screen.active")?.id === "home") showScreen("home");
+});
 
 /* ============================================================
    TOUR GUIADO — mostra, passo a passo, o que cada parte faz.
@@ -2984,12 +3057,38 @@ function endTour() {
   document.getElementById("helpBtn")?.focus({ preventScroll: true });
 }
 
-// Abre sozinho só para quem chega pela primeira vez, com a despensa vazia.
-window.addEventListener("load", () => {
+// Abre sozinho só para quem chega pela primeira vez, com a despensa vazia —
+// e só depois que a abertura termina, para não competir com ela.
+window.addEventListener("w2t:splash-done", () => {
   let done = false;
   try { done = localStorage.getItem(TOUR_KEY) === "1"; } catch (error) {}
-  if (!done && foods.length === 0) setTimeout(startTour, 900);
+  if (!done && foods.length === 0) setTimeout(startTour, 500);
 });
+
+/* ============================================================
+   ABERTURA — mostra a marca por um instante e some quando o app
+   está carregado. Aparece uma vez por visita (sessionStorage).
+============================================================ */
+(function initSplash() {
+  const el = document.getElementById("splash");
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    el?.remove();
+    window.dispatchEvent(new Event("w2t:splash-done"));
+  };
+  const onReady = fn => document.readyState === "complete" ? fn() : window.addEventListener("load", fn, { once: true });
+
+  if (!el || document.documentElement.classList.contains("no-splash")) { onReady(finish); return; }
+
+  try { sessionStorage.setItem("w2t-splash", "1"); } catch (error) {}
+  const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const MIN_VISIBLE = reduced ? 600 : 1500; // tempo para a animação ser lida
+  const leave = () => { el.classList.add("leaving"); setTimeout(finish, 340); };
+  onReady(() => setTimeout(leave, Math.max(0, MIN_VISIBLE - performance.now())));
+  setTimeout(leave, 6000); // segurança: nunca prende a pessoa na abertura
+})();
 
 function renderStats() {
   const { consumido, desperdicado, salvo, economia } = computeStats();

@@ -6,7 +6,7 @@
    isso aqui só cuida dos arquivos do app em si.
 ============================================================ */
 
-const CACHE_VERSION = "wasting2tasting-v11";
+const CACHE_VERSION = "wasting2tasting-v12";
 
 // Arquivos essenciais do app (o "esqueleto")
 const APP_SHELL = [
@@ -15,6 +15,8 @@ const APP_SHELL = [
   "./manifest.json",
   "./style.css",
   "./fonts/Figtree-Variable.woff2",
+  "./brand/logo-mark.webp",
+  "./brand/icon-any-192.png",
   "./icon-192.png",
   "./icon-512.png"
 ];
