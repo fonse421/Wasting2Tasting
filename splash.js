@@ -17,7 +17,7 @@
 
   try { sessionStorage.setItem("w2t-splash", "1"); } catch (error) {}
   const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MIN_VISIBLE = reduced ? 700 : 2100; // tempo para a animação ser lida
+  const MIN_VISIBLE = reduced ? 900 : 5000; // tempo para a animação ser lida
   const leave = () => { el.classList.add("leaving"); setTimeout(finish, reduced ? 220 : 400); };
   onReady(() => setTimeout(leave, Math.max(0, MIN_VISIBLE - performance.now())));
   setTimeout(leave, 6000); // segurança: nunca prende a pessoa na abertura

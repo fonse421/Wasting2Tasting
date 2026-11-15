@@ -454,15 +454,15 @@
     .splash-center { display: flex; flex-direction: column; align-items: center; text-align: center; transform: translateY(-3vh); }
     .splash-mono { width: min(46vw, 180px); height: auto; overflow: visible; }
     .sm-ring { fill: none; stroke: #1da053; stroke-width: 45; stroke-dasharray: 1; stroke-dashoffset: 1;
-      transform: rotate(-90deg); transform-origin: 256px 256px; animation: smDraw .85s cubic-bezier(.65,0,.2,1) .15s forwards; }
-    .sm-disc { fill: #f4faf5; transform-box: fill-box; transform-origin: center; animation: smDisc .55s cubic-bezier(.2,.9,.25,1.25) .55s both; }
+      transform: rotate(-90deg); transform-origin: 256px 256px; animation: smDraw 1.6s cubic-bezier(.65,0,.2,1) .3s forwards; }
+    .sm-disc { fill: #f4faf5; transform-box: fill-box; transform-origin: center; animation: smDisc 1s cubic-bezier(.2,.9,.25,1.25) 1.4s both; }
     .sm-letters { font-family: "Figtree", system-ui, sans-serif; font-weight: 800; font-size: 118px; letter-spacing: -3px; fill: #186939;
-      transform-box: fill-box; transform-origin: center; animation: smLetters .5s cubic-bezier(.2,.8,.2,1) .85s both; }
-    .splash-name { margin: 26px 0 0; color: #f4faf5; font-size: 26px; font-weight: 800; letter-spacing: -.02em; animation: splashRise .6s cubic-bezier(.2,.8,.2,1) 1.05s both; }
-    .splash-tag { margin: 6px 0 0; color: #8fd0a6; font-size: 14px; font-weight: 500; animation: splashRise .6s cubic-bezier(.2,.8,.2,1) 1.2s both; }
+      transform-box: fill-box; transform-origin: center; animation: smLetters .9s cubic-bezier(.2,.8,.2,1) 2.1s both; }
+    .splash-name { margin: 26px 0 0; color: #f4faf5; font-size: 26px; font-weight: 800; letter-spacing: -.02em; animation: splashRise 1s cubic-bezier(.2,.8,.2,1) 2.9s both; }
+    .splash-tag { margin: 6px 0 0; color: #8fd0a6; font-size: 14px; font-weight: 500; animation: splashRise 1s cubic-bezier(.2,.8,.2,1) 3.3s both; }
     .splash-load { position: absolute; bottom: calc(max(env(safe-area-inset-bottom), 0px) + 9vh); left: 50%; width: 120px; height: 3px; margin-left: -60px;
-      border-radius: 3px; background: rgba(244,250,245,.14); overflow: hidden; animation: splashRise .5s ease 1s both; }
-    .splash-load > i { display: block; height: 100%; border-radius: 3px; background: #1da053; transform-origin: left; animation: splashLoad 1.3s cubic-bezier(.4,.1,.2,1) 1s both; }
+      border-radius: 3px; background: rgba(244,250,245,.14); overflow: hidden; animation: splashRise .6s ease 1s both; }
+    .splash-load > i { display: block; height: 100%; border-radius: 3px; background: #1da053; transform-origin: left; animation: splashLoad 3.6s cubic-bezier(.4,.1,.2,1) 1s both; }
     @keyframes smDraw { to { stroke-dashoffset: 0; } }
     @keyframes smDisc { from { opacity: 0; transform: scale(.55); } to { opacity: 1; transform: none; } }
     @keyframes smLetters { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
