@@ -4,7 +4,7 @@
    Dados pessoais continuam armazenados localmente no navegador.
 ============================================================ */
 
-const CACHE_VERSION = "wasting2tasting-v11";
+const CACHE_VERSION = "wasting2tasting-v12";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -13,10 +13,15 @@ const APP_SHELL = [
   "./recipes.js",
   "./recipes-ui.js",
   "./intro.js",
+  "./splash.js",
   "./boot.js",
   "./manifest.json"
 ];
-const OPTIONAL_ASSETS = ["./icon-192.png", "./icon-512.png"];
+const OPTIONAL_ASSETS = [
+  "./icon-192.png", "./icon-512.png", "./brand/apple-touch-icon.png",
+  "./brand/icon-maskable-192.png", "./brand/icon-maskable-512.png",
+  "./fonts/Figtree-Variable.woff2"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {

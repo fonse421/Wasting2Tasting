@@ -7,5 +7,5 @@ initFirstRunGuide();
 updateBackupStatus();
 updateNotificationPreferenceUI();
 checkAndNotifyExpirations();
-initWelcomeIntro();
+onSplashDone(initWelcomeIntro);
 setInterval(render, 60000);

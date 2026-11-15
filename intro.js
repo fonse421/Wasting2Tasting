@@ -47,5 +47,6 @@ function finishWelcomeIntro() {
     overlay.classList.add("hidden");
     overlay.classList.remove("is-open", "is-leaving");
     document.querySelector("#home button")?.focus({ preventScroll: true });
+    window.dispatchEvent(new Event("w2t:welcome-done"));
   }, 400);
 }

@@ -145,6 +145,7 @@ let lastPrediction = null;
 let analyzing = false;
 let currentRecipe = null;
 let currentStepIndex = 0;
+let lastRenderedStepKey = "";
 let completedRecipeSteps = new Set();
 let barcodeBusy = false;
 let barcodeLookupBusy = false;
@@ -714,8 +715,25 @@ function showToast(text, icon) {
    CARDS / RENDER — DESPENSA
 ============================================================ */
 
-function card(food) {
+// Texto curto e humano sobre quanto tempo falta ("Vence amanhã", "Venceu há 2 dias").
+function freshnessLabel(days) {
+  if (days === null) return "Sem data de validade";
+  if (days < -1) return `Venceu há ${-days} dias`;
+  if (days === -1) return "Venceu ontem";
+  if (days === 0) return "Vence hoje";
+  if (days === 1) return "Vence amanhã";
+  if (days >= 60) return `Vence em cerca de ${Math.round(days / 30)} meses`;
+  return `Vence em ${days} dias`;
+}
+
+function card(food, index) {
   const [status] = dateStatus(food.expiry);
+  const days = food.expiry ? daysUntil(food.expiry) : null;
+  const statusKey = status === "Vencido" ? "expired" : status === "Vence logo" ? "soon" : status === "Sem validade" ? "none" : "ok";
+  // A barra mostra quanto resta da "janela" de 7 dias; acima disso fica cheia.
+  const freshPct = days === null ? 0 : days < 0 ? 1 : Math.min(1, days / 7);
+  const freshText = freshnessLabel(days);
+  const freshBar = days === null ? "" : `<div class="fresh" role="img" aria-label="${freshText}"><i style="--p:${freshPct}"></i></div>`;
   const expiryText = food.expiry
     ? new Date(food.expiry + "T00:00:00").toLocaleDateString("pt-BR")
     : "Não informada";
@@ -754,7 +772,7 @@ function card(food) {
     `;
 
   return `
-    <div class="bg-white rounded-2xl border border-slate-200 p-4">
+    <div class="food-card bg-white rounded-2xl border border-slate-200 p-4" data-status="${statusKey}" style="--i:${Math.min(index || 0, 8)}">
       <div class="flex items-center gap-3">
         <div class="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-2xl shrink-0">${esc(food.icon || iconFor(food.name))}</div>
         <div class="flex-1 min-w-0">
@@ -768,6 +786,8 @@ function card(food) {
           <p class="text-xs text-slate-500 mt-0.5">Quantidade: ${qty} ${esc(food.unit || "unidade")}${food.category ? ` · ${esc(food.category)}` : ""}</p>
           <p class="text-xs text-slate-500 mt-0.5">Validade: ${expiryText}</p>
           <p class="text-[11px] ${expirySourceClass} mt-0.5">${expirySourceText}</p>
+          <p class="fresh-label">${freshText}</p>
+          ${freshBar}
           ${expiryEditor}
           ${food.weight || food.packedDate ? `<p class="text-xs text-slate-500 mt-1">${food.weight ? `Peso: ${esc(food.weight)}` : ""}${food.packedDate ? `${food.weight ? " • " : ""}Embalado: ${new Date(food.packedDate + "T00:00:00").toLocaleDateString("pt-BR")}` : ""}</p>` : ""}
           ${priceText}
@@ -782,10 +802,14 @@ function card(food) {
 
 function empty() {
   return `
-    <div class="text-center py-12">
+    <div class="text-center py-10">
       <div class="text-5xl">🥕</div>
-      <p class="font-semibold text-slate-700 mt-3">Nenhum alimento salvo.</p>
-      <p class="text-sm text-slate-400 mt-1">Escaneie ou cadastre manualmente para adicionar.</p>
+      <p class="font-bold text-slate-700 mt-3 text-lg">Sua despensa está vazia</p>
+      <p class="text-sm text-slate-500 mt-1 leading-relaxed">Adicione o primeiro alimento e o app avisa antes de ele vencer.</p>
+      <div class="flex gap-2 justify-center mt-4">
+        <button onclick="openScanner()" class="bg-green-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold">Escanear</button>
+        <button onclick="openManualAdd()" class="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold">Adicionar à mão</button>
+      </div>
     </div>
   `;
 }
@@ -1073,7 +1097,7 @@ function renderRescueRecipes(items) {
             <p class="font-semibold text-sm text-slate-800">${esc(r.name)}</p>
             <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold ${diff.cls}">${diff.label}</span>
           </div>
-          <p class="text-[11px] text-orange-600 mt-0.5">Usa ${r.rescueMatches} ingrediente(s) que estão vencendo</p>
+          <p class="text-[11px] text-orange-600 mt-0.5">${r.rescueMatches === 1 ? "Usa 1 ingrediente que está vencendo" : `Usa ${r.rescueMatches} ingredientes que estão vencendo`}</p>
         </div>
         <span class="text-lg text-slate-300">›</span>
       </div>
@@ -1156,7 +1180,7 @@ function renderShopping() {
   const totalUnits = pending.reduce((sum, i) => sum + (i.qty || 1), 0);
   document.getElementById("shopEstimate").textContent = total
     ? (pending.length
-        ? `Faltam ${totalUnits} unidade${totalUnits === 1 ? "" : "s"} para fechar a lista.`
+        ? `${totalUnits === 1 ? "Falta" : "Faltam"} ${totalUnits} unidade${totalUnits === 1 ? "" : "s"} para fechar a lista.`
         : "Lista completa! Mande os itens para a despensa.")
     : "";
 
@@ -1347,9 +1371,150 @@ function showScreen(id) {
   });
 
   if (id === "stats") renderStats();
+  if (id === "home") requestAnimationFrame(animateHomeCounters);
 
   window.scrollTo(0, 0);
 }
+
+// Os números do início "sobem" até o valor final quando a tela abre.
+function countUp(el) {
+  if (!el) return;
+  const end = parseInt(el.textContent, 10);
+  if (!Number.isFinite(end) || end <= 0) return;
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const start = performance.now(), duration = 650;
+  (function step(now) {
+    const k = Math.min(1, (now - start) / duration);
+    el.textContent = k < 1 ? Math.round(end * (1 - Math.pow(1 - k, 3))) : end;
+    if (k < 1) requestAnimationFrame(step);
+  })(start);
+}
+
+function animateHomeCounters() {
+  ["totalItems", "expiringItems", "expiredItems"].forEach(id => countUp(document.getElementById(id)));
+}
+window.addEventListener("load", () => setTimeout(animateHomeCounters, 150));
+// Quando a abertura sai, a tela inicial "acontece" de verdade: números sobem e barras enchem.
+window.addEventListener("w2t:splash-done", () => {
+  if (document.querySelector(".screen.active")?.id === "home") showScreen("home");
+});
+
+/* ============================================================
+   TOUR GUIADO — mostra, passo a passo, o que cada parte faz.
+   Abre sozinho só na primeira vez (despensa vazia). O botão "?"
+   no topo abre de novo quando a pessoa quiser.
+============================================================ */
+
+const TOUR_KEY = "w2t-tour-done";
+const TOUR_STEPS = [
+  { title: "Bem-vindo ao Wasting2Tasting", text: "Em menos de um minuto você vê como o app ajuda a não jogar comida fora." },
+  { target: '#home > button[onclick="openScanner()"]', title: "Escaneie a embalagem", text: "A câmera lê o código de barras ou o rótulo e já preenche o nome e a validade." },
+  { target: "#home .grid-cols-3.gap-2", title: "Prefere digitar?", text: "Use Manual para cadastrar à mão, Compras para a lista do mercado e Receitas para ideias de pratos." },
+  { target: "#home .grid-cols-3.gap-3", title: "Seu resumo do dia", text: "Itens guardados, os que vencem em até 3 dias e os que já venceram. Comece pelos que vencem primeiro." },
+  { target: "nav", title: "As cores contam a história", text: "Na Despensa, verde é tranquilo, laranja vence em até 3 dias e vermelho já passou da data. A barrinha mostra quanto tempo resta." },
+  { target: "#helpBtn", title: "Ficou com dúvida?", text: "Toque em ? a qualquer momento para ver este passo a passo de novo." }
+];
+
+let tourIndex = 0;
+let tourEl = null;
+
+function startTour() {
+  if (tourEl) return;
+  showScreen("home");
+  tourIndex = 0;
+  tourEl = document.createElement("div");
+  tourEl.className = "tour-root";
+  tourEl.innerHTML = `
+    <div class="tour-spot"></div>
+    <div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle" tabindex="-1">
+      <h3 id="tourTitle"></h3>
+      <p id="tourText" aria-live="polite"></p>
+      <div class="tour-foot">
+        <div class="tour-dots" aria-hidden="true"></div>
+        <div class="tour-actions">
+          <button type="button" class="tour-btn ghost" id="tourSkip">Pular</button>
+          <button type="button" class="tour-btn primary" id="tourNext">Próximo</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(tourEl);
+  tourEl.querySelector(".tour-dots").innerHTML = TOUR_STEPS.map(() => "<i></i>").join("");
+  tourEl.querySelector("#tourSkip").onclick = endTour;
+  tourEl.querySelector("#tourNext").onclick = () => {
+    if (tourIndex >= TOUR_STEPS.length - 1) endTour();
+    else { tourIndex++; renderTourStep(); }
+  };
+  document.addEventListener("keydown", tourKeydown);
+  window.addEventListener("resize", renderTourStep);
+  renderTourStep();
+}
+
+function tourKeydown(event) {
+  if (event.key === "Escape") endTour();
+}
+
+function renderTourStep() {
+  if (!tourEl) return;
+  const step = TOUR_STEPS[tourIndex];
+  const spot = tourEl.querySelector(".tour-spot");
+  const card = tourEl.querySelector(".tour-card");
+  const last = tourIndex === TOUR_STEPS.length - 1;
+
+  card.querySelector("#tourTitle").textContent = step.title;
+  card.querySelector("#tourText").textContent = step.text;
+  card.querySelector("#tourNext").textContent = last ? "Entendi" : "Próximo";
+  card.querySelector("#tourSkip").style.visibility = last ? "hidden" : "visible";
+  card.querySelectorAll(".tour-dots i").forEach((dot, i) => dot.classList.toggle("on", i === tourIndex));
+
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const target = step.target ? document.querySelector(step.target) : null;
+  // "instant" porque o CSS da página usa rolagem suave e a medição precisa ser depois do salto.
+  if (target) target.scrollIntoView({ block: "center", behavior: "instant" });
+  const rect = target ? target.getBoundingClientRect() : null;
+  const cardW = card.offsetWidth, cardH = card.offsetHeight;
+
+  if (rect) {
+    const pad = 6;
+    spot.style.top = rect.top - pad + "px";
+    spot.style.left = rect.left - pad + "px";
+    spot.style.width = rect.width + pad * 2 + "px";
+    spot.style.height = rect.height + pad * 2 + "px";
+    const below = rect.bottom + pad + 14;
+    const top = below + cardH <= vh - 12 ? below : Math.max(12, rect.top - pad - 14 - cardH);
+    card.style.top = top + "px";
+    card.style.left = Math.min(Math.max(16, rect.left + rect.width / 2 - cardW / 2), vw - cardW - 16) + "px";
+  } else {
+    spot.style.top = vh / 2 + "px";
+    spot.style.left = vw / 2 + "px";
+    spot.style.width = "0px";
+    spot.style.height = "0px";
+    card.style.top = Math.max(12, (vh - cardH) / 2) + "px";
+    card.style.left = (vw - cardW) / 2 + "px";
+  }
+  card.focus({ preventScroll: true });
+}
+
+function endTour() {
+  if (!tourEl) return;
+  document.removeEventListener("keydown", tourKeydown);
+  window.removeEventListener("resize", renderTourStep);
+  tourEl.remove();
+  tourEl = null;
+  try { localStorage.setItem(TOUR_KEY, "1"); } catch (error) {}
+  document.getElementById("helpBtn")?.focus({ preventScroll: true });
+}
+
+// Abre sozinho só para quem chega pela primeira vez, com a despensa vazia.
+// Espera a abertura e a tela de boas-vindas terminarem, para nada competir.
+function maybeAutoStartTour() {
+  let done = false;
+  try { done = localStorage.getItem(TOUR_KEY) === "1"; } catch (error) {}
+  if (done || foods.length !== 0 || tourEl) return;
+  if (document.body.classList.contains("intro-open")) return;
+  setTimeout(() => { if (!tourEl && !document.body.classList.contains("intro-open")) startTour(); }, 500);
+}
+window.addEventListener("w2t:splash-done", () => setTimeout(maybeAutoStartTour, 50));
+window.addEventListener("w2t:welcome-done", maybeAutoStartTour);
 
 function renderStats() {
   const { consumido, desperdicado, salvo, economia } = computeStats();
@@ -1358,6 +1523,11 @@ function renderStats() {
   document.getElementById("statSalvo").textContent = salvo;
   document.getElementById("statEconomia").textContent =
     economia.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  ["statConsumido", "statDesperdicado", "statSalvo"].forEach(id => countUp(document.getElementById(id)));
+  // Sem nenhum registro ainda, a tela explica de onde os números vêm.
+  document.getElementById("statsHint").textContent = consumido + desperdicado + salvo === 0
+    ? "Seus números aparecem aqui conforme você usa e descarta alimentos na despensa."
+    : "Quanto você aproveitou e quanto deixou estragar.";
 }
 
 /* ============================================================
@@ -1548,18 +1718,21 @@ function getExpiryWarnings() {
 }
 
 function expiryWarningRow(f, kind) {
-  const expiryText = f.expiry
+  const dateText = f.expiry
     ? new Date(f.expiry + "T00:00:00").toLocaleDateString("pt-BR")
-    : "Sem validade";
+    : "";
+  // "Vence amanhã" diz mais do que só a data; a data continua ao lado.
+  const when = f.expiry ? freshnessLabel(daysUntil(f.expiry)) : "Sem validade";
 
   const dot = kind === "expired" ? "bg-red-500" : "bg-orange-500";
+  const whenClass = kind === "expired" ? "text-red-600" : "text-orange-600";
 
   return `
     <div class="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
       <span class="w-2 h-2 rounded-full shrink-0 ${dot}"></span>
       <div class="flex-1 min-w-0">
         <p class="font-semibold text-sm text-slate-800 truncate">${esc(f.name)}</p>
-        <p class="text-xs text-slate-400">Validade: ${expiryText}</p>
+        <p class="text-xs text-slate-400"><span class="font-semibold ${whenClass}">${when}</span>${dateText ? ` (${dateText})` : ""}</p>
       </div>
     </div>
   `;

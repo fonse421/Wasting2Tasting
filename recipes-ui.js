@@ -325,10 +325,13 @@ function openRecipeDetail(name) {
   const available = foods.map(f => f.name.toLowerCase());
   const missing = r.needs.filter(n => !matchIngredient(available, n));
 
-  document.getElementById("recipeDetailMissing").textContent =
+  const missingEl = document.getElementById("recipeDetailMissing");
+  missingEl.textContent =
     missing.length
       ? `Falta: ${missing.join(", ")}`
       : "Você tem tudo para essa receita ✓";
+  // Laranja avisa o que falta; verde confirma que está tudo em casa.
+  missingEl.classList.toggle("have-all", missing.length === 0);
 
   document.getElementById("recipeDetailMissingBtn").classList.toggle("hidden", missing.length === 0);
 
@@ -351,6 +354,17 @@ function renderRecipeStep() {
 
   document.getElementById("recipeStepIcon").textContent = step.icon;
   document.getElementById("recipeStepText").textContent = step.text;
+  // A etapa nova entra deslizando; marcar "concluída" não repete o movimento.
+  const stepKey = `${currentRecipe.name}:${currentStepIndex}`;
+  if (stepKey !== lastRenderedStepKey) {
+    lastRenderedStepKey = stepKey;
+    ["recipeStepIcon", "recipeStepText"].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.remove("step-swap");
+      void el.offsetWidth;
+      el.classList.add("step-swap");
+    });
+  }
   document.getElementById("recipeStepCounter").textContent =
     `Passo ${currentStepIndex + 1} de ${steps.length}`;
 
